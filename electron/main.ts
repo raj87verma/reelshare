@@ -7,10 +7,6 @@ import { initVideoProcessor } from './video-processor';
 import { initPlatformManager } from './social-platforms/manager';
 import { initConfigService } from './config';
 
-// Vite environment variables
-declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
-declare const MAIN_WINDOW_VITE_NAME: string;
-
 // Note: we package with electron-builder (NSIS on Windows), which handles
 // installer/uninstaller shortcuts itself. electron-squirrel-startup is only
 // needed for electron-forge's Squirrel.Windows target, which we don't use.
@@ -36,19 +32,33 @@ const createWindow = () => {
   });
 
   // and load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
-  }
-
-  // Open the DevTools in development mode
-  if (process.env.NODE_ENV === 'development') {
+  // In development, the Vite dev server (npm run dev:react) serves the app
+  // on localhost:3000. In production (packaged app), load the built static
+  // file directly. app.isPackaged is Electron's own reliable signal for
+  // this, unlike the electron-forge-specific globals used previously,
+  // which are only replaced at build time by @electron-forge/plugin-vite
+  // and are otherwise undefined at runtime with a plain tsc build,
+  // throwing a ReferenceError that silently killed window loading.
+  if (!app.isPackaged) {
+    mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  // Create system tray
-  createTray();
+  // Create system tray. Wrapped in try/catch: this runs inside the promise
+  // chain kicked off by app.whenReady().then(createWindow), so an uncaught
+  // exception here (e.g. a missing/corrupt tray icon file) would silently
+  // reject that promise. Electron does not show an error dialog for
+  // unhandled promise rejections the way it does for synchronous uncaught
+  // exceptions, so the window would already exist (hence a blank/default
+  // window) but never proceed to load its content. A failed tray is not
+  // fatal to the app, so we log and continue instead of crashing.
+  try {
+    createTray();
+  } catch (error) {
+    console.error('Failed to create system tray (continuing without it):', error);
+  }
 
   // Initialize services
   initDatabase();
@@ -115,6 +125,18 @@ const createTray = () => {
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
+//
+// The .catch() here is a deliberate safety net: any uncaught exception
+// inside createWindow() (or anything it calls) rejects this promise.
+// Electron does NOT show its "A JavaScript error occurred in the main
+// process" dialog for unhandled promise rejections the way it does for
+// synchronous top-level exceptions -- the app just silently ends up with
+// a window that opened but never loaded content (a blank white screen)
+// or, if the window itself failed, with a fully hung process. Surfacing
+// the error explicitly here means future bugs in this chain fail loudly
+// instead of silently, which is exactly the failure mode that shipped in
+// v1.0.2 (a leftover electron-forge-only global reference in createWindow
+// threw a ReferenceError that nobody could see).
 app.whenReady().then(() => {
   createWindow();
 
@@ -125,6 +147,13 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+}).catch((error) => {
+  console.error('Fatal error during app startup:', error);
+  dialog.showErrorBox(
+    'ReelShare failed to start',
+    `An error occurred while starting the application:\n\n${error?.stack || error}`
+  );
+  app.quit();
 });
 
 // Quit when all windows are closed, except on macOS.
