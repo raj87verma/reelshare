@@ -32,6 +32,7 @@ export interface PostMetadata {
   isReel?: boolean;
   isStory?: boolean;
   visibility?: 'public' | 'private' | 'friends';
+  category?: string;
 }
 
 export interface UploadResult {
@@ -130,10 +131,23 @@ export abstract class SocialMediaPlatform {
   protected async makeRequest(
     url: string,
     options: RequestInit = {},
+    queryParams: Record<string, any> = {},
     retryOnAuthError: boolean = true
-  ): Promise<any> {
+  ): Promise<Record<string, any>> {
     if (!this.accessToken) {
       throw new Error('Not authenticated');
+    }
+
+    // Append any query parameters to the URL
+    let requestUrl = url;
+    if (Object.keys(queryParams).length > 0) {
+      const urlObj = new URL(url);
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          urlObj.searchParams.append(key, value.toString());
+        }
+      });
+      requestUrl = urlObj.toString();
     }
 
     const headers = {
@@ -143,7 +157,7 @@ export abstract class SocialMediaPlatform {
     };
 
     try {
-      const response = await fetch(url, {
+      const response = await fetch(requestUrl, {
         ...options,
         headers
       });
@@ -154,20 +168,20 @@ export abstract class SocialMediaPlatform {
           const retryAfter = response.headers.get('Retry-After');
           const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 60000;
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          return this.makeRequest(url, options, retryOnAuthError);
+          return this.makeRequest(url, options, queryParams, retryOnAuthError);
         }
 
         // Handle authentication errors
         if (response.status === 401 && retryOnAuthError) {
           await this.refreshAccessToken();
-          return this.makeRequest(url, options, false);
+          return this.makeRequest(url, options, queryParams, false);
         }
 
         const error = await response.text();
         throw new Error(`API request failed: ${response.status} ${error}`);
       }
 
-      return await response.json();
+      return (await response.json()) as Record<string, any>;
     } catch (error) {
       console.error('Request failed:', error);
       throw error;

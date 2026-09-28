@@ -11,7 +11,6 @@ const Settings: React.FC = () => {
     loading, 
     loadSettings, 
     updateSetting, 
-    updateSettings,
     resetSettings,
     exportSettings,
     importSettings 

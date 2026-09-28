@@ -289,7 +289,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  processVideo: async (videoId, options) => {
+  processVideo: async (videoId, _options) => {
     set({ processing: true, processingProgress: 0, error: null });
     
     try {
@@ -334,7 +334,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  generateThumbnail: async (videoPath, timestamp = 5) => {
+  generateThumbnail: async (_videoPath, _timestamp = 5) => {
     try {
       // In a real app, this would call the video processor service
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -346,7 +346,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  compressVideo: async (inputPath, outputPath, quality) => {
+  compressVideo: async (_inputPath, outputPath, _quality) => {
     try {
       // In a real app, this would call the video processor service
       await new Promise(resolve => setTimeout(resolve, 2000));

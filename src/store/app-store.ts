@@ -145,6 +145,21 @@ declare global {
       sendEvent: (channel: string, data: any) => void;
       removeTrayActionListener: () => void;
       removeAppBeforeQuitListener: () => void;
+      config: {
+        getAll: () => Promise<any>;
+        get: (path: string) => Promise<any>;
+        set: (path: string, value: any) => Promise<boolean>;
+        update: (updates: Record<string, any>) => Promise<boolean>;
+        reset: () => Promise<boolean>;
+        export: () => Promise<string>;
+        import: (json: string) => Promise<boolean>;
+        getPlatform: (platform: string) => Promise<any>;
+        updatePlatform: (platform: string, updates: Record<string, any>) => Promise<boolean>;
+        getMaxFileSize: () => Promise<number>;
+        isFormatSupported: (format: string) => Promise<boolean>;
+        getConcurrentUploads: () => Promise<number>;
+        getCaption: (title: string, description: string) => Promise<string>;
+      };
     };
   }
 }

@@ -158,7 +158,7 @@ export class YouTubePlatform extends SocialMediaPlatform {
       return {
         success: true,
         scheduledId,
-        scheduledTime
+        scheduledTime: scheduleTime
       };
 
     } catch (error) {
@@ -247,7 +247,7 @@ export class YouTubePlatform extends SocialMediaPlatform {
         throw new Error('Token refresh failed');
       }
 
-      const data = await response.json();
+      const data = await response.json() as { access_token: string; expires_in: number };
       
       const result: AuthResult = {
         accessToken: data.access_token,
@@ -299,7 +299,7 @@ export class YouTubePlatform extends SocialMediaPlatform {
       throw new Error('Token exchange failed');
     }
 
-    return await response.json();
+    return (await response.json()) as Record<string, any>;
   }
 
   private async getChannelInfo(accessToken: string): Promise<any> {
@@ -317,7 +317,7 @@ export class YouTubePlatform extends SocialMediaPlatform {
       throw new Error('Failed to get channel info');
     }
 
-    return await response.json();
+    return (await response.json()) as Record<string, any>;
   }
 
   private formatDescription(description: string, metadata: PostMetadata): string {
@@ -399,23 +399,5 @@ export class YouTubePlatform extends SocialMediaPlatform {
 
   private getClientSecret(): string {
     return process.env.YOUTUBE_CLIENT_SECRET || '';
-  }
-
-  // Override makeRequest to handle Google API's query parameters
-  protected async makeRequest(
-    url: string,
-    options: RequestInit = {},
-    queryParams: Record<string, any> = {},
-    retryOnAuthError: boolean = true
-  ): Promise<any> {
-    // Add query parameters to URL
-    const urlObj = new URL(url);
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        urlObj.searchParams.append(key, value.toString());
-      }
-    });
-    
-    return super.makeRequest(urlObj.toString(), options, retryOnAuthError);
   }
 }

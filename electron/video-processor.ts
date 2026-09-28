@@ -96,14 +96,21 @@ class VideoProcessor {
         // Fallback to using ffmpeg.js
         if (!ffmpeg) await this.initialize();
         
+        let logOutput = '';
+        const logHandler = ({ message }: { message: string }) => {
+          logOutput += message + '\n';
+        };
+        ffmpeg!.on('log', logHandler);
+        
         const data = await fetchFile(filePath);
-        ffmpeg!.FS('writeFile', 'input.mp4', data);
+        await ffmpeg!.writeFile('input.mp4', data);
         
-        await ffmpeg!.run('-i', 'input.mp4', '-f', 'null', '-');
-        const output = ffmpeg!.FS('readFile', 'log.txt');
+        await ffmpeg!.exec(['-i', 'input.mp4', '-f', 'null', '-']);
         
-        // Parse ffmpeg output to extract metadata
-        const outputStr = new TextDecoder().decode(output);
+        ffmpeg!.off('log', logHandler);
+        
+        // Parse ffmpeg log output to extract metadata
+        const outputStr = logOutput;
         
         // Extract duration from output
         const durationMatch = outputStr.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d{2})/);
@@ -150,21 +157,21 @@ class VideoProcessor {
       const thumbnailPath = path.join(this.tempDir, thumbnailName);
       
       const data = await fetchFile(videoPath);
-      ffmpeg!.FS('writeFile', 'input.mp4', data);
+      await ffmpeg!.writeFile('input.mp4', data);
       
-      await ffmpeg!.run(
+      await ffmpeg!.exec([
         '-i', 'input.mp4',
         '-ss', timestamp.toString(),
         '-vframes', '1',
         '-vf', 'scale=320:-1',
         thumbnailName
-      );
+      ]);
       
-      const thumbnailData = ffmpeg!.FS('readFile', thumbnailName);
-      fs.writeFileSync(thumbnailPath, thumbnailData);
+      const thumbnailData = await ffmpeg!.readFile(thumbnailName);
+      fs.writeFileSync(thumbnailPath, thumbnailData as Uint8Array);
       
-      ffmpeg!.FS('unlink', thumbnailName);
-      ffmpeg!.FS('unlink', 'input.mp4');
+      await ffmpeg!.deleteFile(thumbnailName);
+      await ffmpeg!.deleteFile('input.mp4');
       
       return thumbnailPath;
     } catch (error) {
@@ -184,7 +191,7 @@ class VideoProcessor {
       const outputPath = path.join(this.tempDir, outputName);
       
       const data = await fetchFile(filePath);
-      ffmpeg!.FS('writeFile', 'input.mp4', data);
+      await ffmpeg!.writeFile('input.mp4', data);
       
       const args = ['-i', 'input.mp4'];
       
@@ -214,16 +221,16 @@ class VideoProcessor {
       
       args.push(outputName);
       
-      await ffmpeg!.run(...args);
+      await ffmpeg!.exec(args);
       
-      const processedData = ffmpeg!.FS('readFile', outputName);
-      fs.writeFileSync(outputPath, processedData);
+      const processedData = await ffmpeg!.readFile(outputName);
+      fs.writeFileSync(outputPath, processedData as Uint8Array);
       
       const thumbnailPath = await this.generateThumbnail(outputPath);
       
       // Cleanup
-      ffmpeg!.FS('unlink', outputName);
-      ffmpeg!.FS('unlink', 'input.mp4');
+      await ffmpeg!.deleteFile(outputName);
+      await ffmpeg!.deleteFile('input.mp4');
       
       const processingTime = Date.now() - startTime;
       const processedMetadata = await this.getVideoMetadata(outputPath);
@@ -245,12 +252,12 @@ class VideoProcessor {
       if (!ffmpeg) await this.initialize();
       
       const data = await fetchFile(inputPath);
-      ffmpeg!.FS('writeFile', 'input.mp4', data);
+      await ffmpeg!.writeFile('input.mp4', data);
       
       const crf = Math.max(0, Math.min(51, 51 - quality));
       const outputName = 'compressed.mp4';
       
-      await ffmpeg!.run(
+      await ffmpeg!.exec([
         '-i', 'input.mp4',
         '-c:v', 'libx264',
         '-crf', crf.toString(),
@@ -258,13 +265,13 @@ class VideoProcessor {
         '-c:a', 'aac',
         '-b:a', '128k',
         outputName
-      );
+      ]);
       
-      const compressedData = ffmpeg!.FS('readFile', outputName);
-      fs.writeFileSync(outputPath, compressedData);
+      const compressedData = await ffmpeg!.readFile(outputName);
+      fs.writeFileSync(outputPath, compressedData as Uint8Array);
       
-      ffmpeg!.FS('unlink', outputName);
-      ffmpeg!.FS('unlink', 'input.mp4');
+      await ffmpeg!.deleteFile(outputName);
+      await ffmpeg!.deleteFile('input.mp4');
       
       return outputPath;
     } catch (error) {
@@ -281,20 +288,20 @@ class VideoProcessor {
       const audioPath = path.join(this.tempDir, audioName);
       
       const data = await fetchFile(videoPath);
-      ffmpeg!.FS('writeFile', 'input.mp4', data);
+      await ffmpeg!.writeFile('input.mp4', data);
       
-      await ffmpeg!.run(
+      await ffmpeg!.exec([
         '-i', 'input.mp4',
         '-q:a', '0',
         '-map', 'a',
         audioName
-      );
+      ]);
       
-      const audioData = ffmpeg!.FS('readFile', audioName);
-      fs.writeFileSync(audioPath, audioData);
+      const audioData = await ffmpeg!.readFile(audioName);
+      fs.writeFileSync(audioPath, audioData as Uint8Array);
       
-      ffmpeg!.FS('unlink', audioName);
-      ffmpeg!.FS('unlink', 'input.mp4');
+      await ffmpeg!.deleteFile(audioName);
+      await ffmpeg!.deleteFile('input.mp4');
       
       return audioPath;
     } catch (error) {

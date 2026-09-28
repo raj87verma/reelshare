@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Filter, Upload, Check, X, AlertCircle, MoreVertical } from 'lucide-react';
+import { Calendar, Clock, Filter, Upload, Check, AlertCircle } from 'lucide-react';
 import ScheduleCalendar from '../components/ScheduleCalendar';
 import ScheduleForm from '../components/ScheduleForm';
 import ScheduledPostCard from '../components/ScheduledPostCard';

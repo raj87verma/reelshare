@@ -194,7 +194,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       return {
         success: true,
         scheduledId,
-        scheduledTime
+        scheduledTime: scheduleTime
       };
 
     } catch (error) {
@@ -299,7 +299,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
         throw new Error('Token refresh failed');
       }
 
-      const data = await response.json();
+      const data = await response.json() as { access_token: string; expires_in?: number };
       
       const result: AuthResult = {
         accessToken: data.access_token,
@@ -334,7 +334,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       throw new Error('Token exchange failed');
     }
 
-    return await response.json();
+    return (await response.json()) as Record<string, any>;
   }
 
   private async getUserPages(accessToken: string): Promise<any[]> {
@@ -349,7 +349,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       throw new Error('Failed to get user pages');
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data?: any[] };
     return data.data || [];
   }
 
@@ -367,7 +367,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       throw new Error('Failed to get Instagram account');
     }
 
-    return await response.json();
+    return (await response.json()) as Record<string, any>;
   }
 
   private async getLongLivedToken(shortLivedToken: string, clientSecret: string): Promise<string> {
@@ -386,7 +386,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       throw new Error('Failed to get long-lived token');
     }
 
-    const data = await response.json();
+    const data = await response.json() as { access_token: string };
     return data.access_token;
   }
 
@@ -404,7 +404,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       throw new Error('Failed to get page access token');
     }
 
-    const data = await response.json();
+    const data = await response.json() as { access_token: string };
     return data.access_token;
   }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Hash, Globe, Video, Check } from 'lucide-react';
+import { X, Calendar, Clock, Hash, Globe, Check } from 'lucide-react';
 import { Video as VideoType } from '../store/video-store';
 import { PlatformConnection } from '../store/social-accounts-store';
 

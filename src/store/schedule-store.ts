@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import { Clock, Upload, Check, AlertCircle, MoreVertical } from 'lucide-react';
 
 export interface ScheduledPost {
   id: string;
@@ -54,7 +55,7 @@ interface ScheduleState {
   clearError: () => void;
 }
 
-export const useScheduleStore = create<ScheduleState>((set, get) => ({
+export const useScheduleStore = create<ScheduleState>((set, _get) => ({
   // Initial state
   scheduledPosts: [],
   loading: false,

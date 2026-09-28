@@ -467,6 +467,20 @@ class DatabaseService {
     return stmt.all(...params);
   }
 
+  async getScheduledPost(id: string): Promise<any | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(`
+      SELECT sp.*, v.title as video_title, v.thumbnail_path, sa.platform, sa.account_name
+      FROM scheduled_posts sp
+      JOIN videos v ON sp.video_id = v.id
+      JOIN social_accounts sa ON sp.account_id = sa.id
+      WHERE sp.id = ?
+    `);
+
+    return stmt.get(id) || null;
+  }
+
   async updateScheduledPost(id: string, updates: Partial<ScheduledPost>): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
     
@@ -624,6 +638,10 @@ export function initDatabase(): void {
   
   ipcMain.handle('db:getScheduledPosts', async (_, userId, status, limit) => {
     return await dbService.getScheduledPosts(userId, status, limit);
+  });
+  
+  ipcMain.handle('db:getScheduledPost', async (_, postId) => {
+    return await dbService.getScheduledPost(postId);
   });
   
   ipcMain.handle('db:updateScheduledPost', async (_, postId, updates) => {

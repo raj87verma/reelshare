@@ -170,7 +170,7 @@ export class TikTokPlatform extends SocialMediaPlatform {
       return {
         success: true,
         scheduledId,
-        scheduledTime
+        scheduledTime: scheduleTime
       };
 
     } catch (error) {
@@ -304,7 +304,7 @@ export class TikTokPlatform extends SocialMediaPlatform {
       throw new Error('Token exchange failed');
     }
 
-    return await response.json();
+    return (await response.json()) as Record<string, any>;
   }
 
   private formatCaption(caption: string, hashtags?: string[]): string {

@@ -61,7 +61,20 @@ const SocialAccounts: React.FC = () => {
     }
   };
 
-  const platformConfigs = [
+  type PlatformDisplayStatus = 'connected' | 'disconnected' | 'expired' | 'error' | 'coming_soon';
+
+  interface PlatformDisplayConfig {
+    id: string;
+    name: string;
+    icon: string;
+    description: string;
+    color: string;
+    connected: boolean;
+    status: PlatformDisplayStatus;
+    username?: string;
+  }
+
+  const platformConfigs: PlatformDisplayConfig[] = [
     {
       id: 'instagram',
       name: 'Instagram',
@@ -295,26 +308,29 @@ const SocialAccounts: React.FC = () => {
                 {platform.status === 'disconnected' && (
                   <button
                     onClick={() => handleConnect(platform.id)}
-                    disabled={connectingPlatform === platform.id || platform.status === 'coming_soon'}
-                    className={`w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 ${
-                      platform.status === 'coming_soon'
-                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    }`}
+                    disabled={connectingPlatform === platform.id}
+                    className="w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 bg-primary text-primary-foreground hover:bg-primary/90"
                   >
                     {connectingPlatform === platform.id ? (
                       <>
                         <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                         <span>Connecting...</span>
                       </>
-                    ) : platform.status === 'coming_soon' ? (
-                      <span>Coming Soon</span>
                     ) : (
                       <>
                         <ExternalLink className="w-4 h-4" />
                         <span>Connect Account</span>
                       </>
                     )}
+                  </button>
+                )}
+
+                {platform.status === 'coming_soon' && (
+                  <button
+                    disabled
+                    className="w-full px-4 py-2 rounded-lg flex items-center justify-center space-x-2 bg-muted text-muted-foreground cursor-not-allowed"
+                  >
+                    <span>Coming Soon</span>
                   </button>
                 )}
 
