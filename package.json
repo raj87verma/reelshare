@@ -2,7 +2,7 @@
   "name": "reelshare",
   "version": "1.0.0",
   "description": "Desktop application for sharing video reels across social media platforms",
-  "main": "dist/main.js",
+  "main": "dist/electron/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"npm run dev:react\" \"npm run dev:electron\"",
@@ -10,7 +10,7 @@
     "dev:electron": "wait-on tcp:3000 && electron .",
     "build": "npm run build:react && npm run build:electron",
     "build:react": "vite build",
-    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:electron": "tsc -p electron/tsconfig.json && node scripts/copy-electron-assets.js",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
