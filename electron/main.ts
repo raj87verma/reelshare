@@ -11,10 +11,9 @@ import { initConfigService } from './config';
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
+// Note: we package with electron-builder (NSIS on Windows), which handles
+// installer/uninstaller shortcuts itself. electron-squirrel-startup is only
+// needed for electron-forge's Squirrel.Windows target, which we don't use.
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
