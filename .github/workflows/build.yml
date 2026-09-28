@@ -1,0 +1,83 @@
+name: Build ReelShare Installers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer (Setup.exe)
+        run: npm run dist
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReelShare-Windows-Setup
+          path: |
+            release/*.exe
+          if-no-files-found: error
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build macOS installer (.dmg)
+        run: npm run dist
+
+      - name: Upload macOS installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReelShare-macOS-DMG
+          path: |
+            release/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Linux installer (.AppImage / .deb)
+        run: npm run dist
+
+      - name: Upload Linux installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReelShare-Linux-Installers
+          path: |
+            release/*.AppImage
+            release/*.deb
+          if-no-files-found: error
