@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Video, 
@@ -11,6 +11,14 @@ import {
 } from 'lucide-react';
 
 const Sidebar: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleUploadClick = () => {
+    // Navigate to the Video Library and tell it to open the upload modal
+    // immediately (read via location.state in VideoLibrary).
+    navigate('/videos', { state: { openUpload: true } });
+  };
+
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Dashboard' },
     { path: '/videos', icon: Video, label: 'Video Library' },
@@ -58,7 +66,10 @@ const Sidebar: React.FC = () => {
 
         {/* Upload Button */}
         <div className="mt-8 p-4">
-          <button className="w-full bg-gradient-to-r from-primary to-pink-500 text-white font-medium py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2">
+          <button
+            onClick={handleUploadClick}
+            className="w-full bg-gradient-to-r from-primary to-pink-500 text-white font-medium py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+          >
             <Upload className="w-5 h-5" />
             <span>Upload Video</span>
           </button>

@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Check, X, RefreshCw, ExternalLink, MoreVertical, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Check, X, RefreshCw, ExternalLink, MoreVertical, AlertCircle, KeyRound } from 'lucide-react';
 import { useSocialAccountsStore } from '../store/social-accounts-store';
+import { useSettingsStore } from '../store/settings-store';
 import { toast } from 'sonner';
 
 const SocialAccounts: React.FC = () => {
+  const navigate = useNavigate();
   const { 
     platforms, 
     loading, 
@@ -13,25 +16,47 @@ const SocialAccounts: React.FC = () => {
     disconnectPlatform,
     refreshPlatformToken 
   } = useSocialAccountsStore();
+  const { settings, loadSettings } = useSettingsStore();
 
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
 
   useEffect(() => {
     getPlatforms();
-  }, [getPlatforms]);
+    loadSettings();
+  }, [getPlatforms, loadSettings]);
+
+  const hasApiCredentials = (platformId: string): boolean => {
+    const creds = (settings?.apiCredentials as any)?.[platformId];
+    return !!(creds?.clientId && creds?.clientSecret);
+  };
 
   const handleConnect = async (platformId: string) => {
+    // Instagram/TikTok/YouTube each require the user's own developer API
+    // credentials (Client ID/Secret) before an OAuth flow can start at all.
+    // Without this check, "Connect Account" silently used hardcoded fake
+    // credentials and never actually reached the real platform.
+    if (!hasApiCredentials(platformId)) {
+      toast.error(
+        `Add your ${platformId.charAt(0).toUpperCase() + platformId.slice(1)} API credentials first`,
+        {
+          description: 'Go to Settings > API Keys to set them up.',
+          action: {
+            label: 'Open Settings',
+            onClick: () => navigate('/settings')
+          }
+        }
+      );
+      return;
+    }
+
     setConnectingPlatform(platformId);
     
     try {
-      // In a real app, this would open OAuth flow
-      // For now, simulate connection
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const creds = (settings.apiCredentials as any)[platformId];
       await connectPlatform(platformId, {
-        clientId: 'test_client_id',
-        clientSecret: 'test_client_secret',
-        redirectUri: 'http://localhost:3000/auth/callback',
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
+        redirectUri: creds.redirectUri,
         scopes: ['basic', 'upload']
       });
       
@@ -306,23 +331,34 @@ const SocialAccounts: React.FC = () => {
                 )}
 
                 {platform.status === 'disconnected' && (
-                  <button
-                    onClick={() => handleConnect(platform.id)}
-                    disabled={connectingPlatform === platform.id}
-                    className="w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                  >
-                    {connectingPlatform === platform.id ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        <span>Connecting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4" />
-                        <span>Connect Account</span>
-                      </>
+                  <>
+                    {!hasApiCredentials(platform.id) && (
+                      <button
+                        onClick={() => navigate('/settings')}
+                        className="w-full flex items-center justify-center space-x-2 px-3 py-2 mb-2 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-lg hover:bg-yellow-200 transition-colors"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>API keys not set - click to configure</span>
+                      </button>
                     )}
-                  </button>
+                    <button
+                      onClick={() => handleConnect(platform.id)}
+                      disabled={connectingPlatform === platform.id}
+                      className="w-full px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {connectingPlatform === platform.id ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          <span>Connecting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Connect Account</span>
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
 
                 {platform.status === 'coming_soon' && (

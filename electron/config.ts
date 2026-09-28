@@ -91,6 +91,18 @@ export interface AppSettings {
       defaultTags: string[];
     };
   };
+
+  // Developer API credentials for each platform (Client ID / Client Secret
+  // from Instagram/Facebook Developer Portal, Google Cloud Console, TikTok
+  // Developer Portal). These are required before a user can connect any
+  // account on the Social Accounts page -- the app cannot start an OAuth
+  // flow without them. Stored via electron-store, same as all other
+  // settings, in the user's app data directory.
+  apiCredentials: {
+    instagram: { clientId: string; clientSecret: string; redirectUri: string };
+    tiktok: { clientId: string; clientSecret: string; redirectUri: string };
+    youtube: { clientId: string; clientSecret: string; redirectUri: string };
+  };
 }
 
 const defaultSettings: AppSettings = {
@@ -169,6 +181,11 @@ const defaultSettings: AppSettings = {
       allowRatings: true,
       defaultTags: ['video', 'content', 'youtube']
     }
+  },
+  apiCredentials: {
+    instagram: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/instagram/callback' },
+    tiktok: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/tiktok/callback' },
+    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' }
   }
 };
 

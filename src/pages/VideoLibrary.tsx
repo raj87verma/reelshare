@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Filter, Grid, List, MoreVertical, Play, Upload } from 'lucide-react';
 import VideoUpload from '../components/VideoUpload';
 import VideoCard from '../components/VideoCard';
@@ -6,6 +7,8 @@ import VideoGrid from '../components/VideoGrid';
 import { useVideoStore } from '../store/video-store';
 
 const VideoLibrary: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -16,6 +19,17 @@ const VideoLibrary: React.FC = () => {
   useEffect(() => {
     getVideos();
   }, [getVideos]);
+
+  // If we were navigated here from the Sidebar's "Upload Video" button
+  // (with { state: { openUpload: true } }), open the upload modal right
+  // away and clear the navigation state so it doesn't reopen on
+  // subsequent visits to this page (e.g. via back/forward navigation).
+  useEffect(() => {
+    if ((location.state as { openUpload?: boolean } | null)?.openUpload) {
+      setShowUploadModal(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const filteredVideos = videos.filter(video => {
     const matchesSearch = video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

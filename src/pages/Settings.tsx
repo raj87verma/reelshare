@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, Bell, Video, Globe, Shield, Database, Download, Moon, Sun } from 'lucide-react';
+import { Save, User, Bell, Video, Globe, Shield, Database, Download, Moon, Sun, Key, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppStore } from '../store/app-store';
 import { useSettingsStore, applyTheme } from '../store/settings-store';
@@ -86,12 +86,180 @@ const Settings: React.FC = () => {
 
   const tabs = [
     { id: 'general', label: 'General', icon: Globe },
+    { id: 'apiKeys', label: 'API Keys', icon: Key },
     { id: 'video', label: 'Video', icon: Video },
     { id: 'upload', label: 'Upload', icon: Download },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'storage', label: 'Storage', icon: Database }
   ];
+
+  const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+  const [credentialDrafts, setCredentialDrafts] = useState<Record<string, { clientId: string; clientSecret: string; redirectUri: string }> | null>(null);
+
+  // Keep a local editable draft of API credentials, seeded from settings
+  // once they've loaded, so typing doesn't trigger a save on every
+  // keystroke (each field only saves on blur / explicit Save click).
+  useEffect(() => {
+    if (settings?.apiCredentials && !credentialDrafts) {
+      setCredentialDrafts(settings.apiCredentials);
+    }
+  }, [settings?.apiCredentials, credentialDrafts]);
+
+  const handleCredentialFieldChange = (
+    platform: 'instagram' | 'tiktok' | 'youtube',
+    field: 'clientId' | 'clientSecret' | 'redirectUri',
+    value: string
+  ) => {
+    setCredentialDrafts(prev => ({
+      ...(prev as any),
+      [platform]: {
+        ...(prev as any)?.[platform],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSaveCredentials = async (platform: 'instagram' | 'tiktok' | 'youtube') => {
+    if (!credentialDrafts) return;
+    await updateSetting('apiCredentials', platform, credentialDrafts[platform]);
+    toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials saved`);
+  };
+
+  const toggleSecretVisibility = (key: string) => {
+    setVisibleSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const platformDeveloperLinks: Record<string, { label: string; url: string; instructions: string }> = {
+    instagram: {
+      label: 'Meta for Developers',
+      url: 'https://developers.facebook.com/apps/',
+      instructions: 'Create an app, add the "Instagram Graph API" product, and copy the Client ID / Client Secret from App Settings > Basic.'
+    },
+    tiktok: {
+      label: 'TikTok for Developers',
+      url: 'https://developers.tiktok.com/apps/',
+      instructions: 'Register an app under "Manage apps", then copy the Client Key (use as Client ID) and Client Secret.'
+    },
+    youtube: {
+      label: 'Google Cloud Console',
+      url: 'https://console.cloud.google.com/apis/credentials',
+      instructions: 'Create an OAuth 2.0 Client ID (type: Desktop app), enable the YouTube Data API v3, and copy the Client ID / Client Secret.'
+    }
+  };
+
+  const renderApiKeysSettings = () => {
+    if (!credentialDrafts) return null;
+
+    const platformList: Array<'instagram' | 'tiktok' | 'youtube'> = ['instagram', 'tiktok', 'youtube'];
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-muted/50 rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">
+            Enter your own developer credentials for each platform below. These are
+            required before you can connect an account on the{' '}
+            <span className="font-medium text-foreground">Social Accounts</span> page.
+            Credentials are saved locally and encrypted at rest; they are never sent
+            anywhere except directly to the platform you're authenticating with.
+          </p>
+        </div>
+
+        {platformList.map((platform) => {
+          const draft = credentialDrafts[platform];
+          const devInfo = platformDeveloperLinks[platform];
+          const secretKey = `${platform}-secret`;
+
+          return (
+            <div key={platform} className="border border-border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-medium text-foreground capitalize">{platform}</h4>
+                <a
+                  href={devInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline flex items-center space-x-1"
+                >
+                  <span>{devInfo.label}</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              <p className="text-xs text-muted-foreground mb-4">{devInfo.instructions}</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Client ID
+                  </label>
+                  <input
+                    type="text"
+                    value={draft.clientId}
+                    onChange={(e) => handleCredentialFieldChange(platform, 'clientId', e.target.value)}
+                    onBlur={() => handleSaveCredentials(platform)}
+                    placeholder="Enter Client ID"
+                    className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Client Secret
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={visibleSecrets[secretKey] ? 'text' : 'password'}
+                      value={draft.clientSecret}
+                      onChange={(e) => handleCredentialFieldChange(platform, 'clientSecret', e.target.value)}
+                      onBlur={() => handleSaveCredentials(platform)}
+                      placeholder="Enter Client Secret"
+                      className="w-full px-4 py-2 pr-10 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleSecretVisibility(secretKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {visibleSecrets[secretKey] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Redirect URI
+                  </label>
+                  <input
+                    type="text"
+                    value={draft.redirectUri}
+                    onChange={(e) => handleCredentialFieldChange(platform, 'redirectUri', e.target.value)}
+                    onBlur={() => handleSaveCredentials(platform)}
+                    placeholder="http://localhost:3000/auth/callback"
+                    className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Must exactly match the redirect URI registered in your {devInfo.label} app settings.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <span className={`text-xs font-medium ${draft.clientId && draft.clientSecret ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  {draft.clientId && draft.clientSecret ? '✓ Configured' : 'Not configured'}
+                </span>
+                <button
+                  onClick={() => handleSaveCredentials(platform)}
+                  className="px-3 py-1.5 bg-primary/10 text-primary text-sm font-medium rounded-lg hover:bg-primary/20 transition-colors"
+                >
+                  Save {platform.charAt(0).toUpperCase() + platform.slice(1)} Credentials
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderGeneralSettings = () => {
     if (!settings?.general) return null;
@@ -448,6 +616,8 @@ const Settings: React.FC = () => {
     switch (activeTab) {
       case 'general':
         return renderGeneralSettings();
+      case 'apiKeys':
+        return renderApiKeysSettings();
       case 'video':
         return renderVideoSettings();
       case 'upload':

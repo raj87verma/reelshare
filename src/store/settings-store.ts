@@ -49,6 +49,11 @@ export interface AppSettings {
     backupAutomatically: boolean;
     backupLocation: string;
   };
+  apiCredentials: {
+    instagram: { clientId: string; clientSecret: string; redirectUri: string };
+    tiktok: { clientId: string; clientSecret: string; redirectUri: string };
+    youtube: { clientId: string; clientSecret: string; redirectUri: string };
+  };
 }
 
 const defaultSettings: AppSettings = {
@@ -98,6 +103,11 @@ const defaultSettings: AppSettings = {
     cleanupInterval: 7,
     backupAutomatically: true,
     backupLocation: 'default'
+  },
+  apiCredentials: {
+    instagram: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/instagram/callback' },
+    tiktok: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/tiktok/callback' },
+    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' }
   }
 };
 
@@ -354,6 +364,7 @@ export const validateSettings = (settings: any): settings is AppSettings => {
     typeof settings.upload === 'object' &&
     typeof settings.notifications === 'object' &&
     typeof settings.security === 'object' &&
-    typeof settings.storage === 'object'
+    typeof settings.storage === 'object' &&
+    typeof settings.apiCredentials === 'object'
   );
 };
