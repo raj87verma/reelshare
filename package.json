@@ -23,7 +23,10 @@
     "electron",
     "scheduler"
   ],
-  "author": "ReelShare Team",
+  "author": {
+    "name": "ReelShare Team",
+    "email": "support@reelshare.app"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
@@ -70,6 +73,7 @@
   "build": {
     "appId": "com.reelshare.app",
     "productName": "ReelShare",
+    "publish": null,
     "directories": {
       "output": "release"
     },
