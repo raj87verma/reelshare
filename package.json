@@ -1,6 +1,6 @@
 {
   "name": "reelshare",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop application for sharing video reels across social media platforms",
   "main": "dist/electron/main.js",
   "scripts": {
@@ -73,7 +73,11 @@
   "build": {
     "appId": "com.reelshare.app",
     "productName": "ReelShare",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "raj87verma",
+      "repo": "reelshare"
+    },
     "directories": {
       "output": "release"
     },
