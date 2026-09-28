@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReelShare - UI Mockup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-icon { transition: all 0.2s ease; }
+        .sidebar-icon:hover { transform: translateX(5px); }
+        .video-card { transition: all 0.3s ease; }
+        .video-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .platform-badge { transition: all 0.2s ease; }
+        .platform-badge:hover { transform: scale(1.05); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-play text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-xl text-gray-800">ReelShare</h1>
+                        <p class="text-xs text-gray-500">Social Media Manager</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex-1 p-4">
+                <nav class="space-y-1">
+                    <a href="#" class="flex items-center space-x-3 p-3 bg-purple-50 text-purple-600 rounded-lg sidebar-icon">
+                        <i class="fas fa-home w-5"></i>
+                        <span class="font-medium">Dashboard</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg sidebar-icon">
+                        <i class="fas fa-video w-5"></i>
+                        <span class="font-medium">Video Library</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg sidebar-icon">
+                        <i class="fas fa-calendar-alt w-5"></i>
+                        <span class="font-medium">Schedule</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg sidebar-icon">
+                        <i class="fas fa-chart-line w-5"></i>
+                        <span class="font-medium">Analytics</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg sidebar-icon">
+                        <i class="fas fa-users w-5"></i>
+                        <span class="font-medium">Accounts</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 p-3 text-gray-600 hover:bg-gray-50 rounded-lg sidebar-icon">
+                        <i class="fas fa-cog w-5"></i>
+                        <span class="font-medium">Settings</span>
+                    </a>
+                </nav>
+
+                <!-- Quick Upload Button -->
+                <div class="mt-8 p-4">
+                    <button class="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium py-3 px-4 rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>Upload Video</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- User Profile -->
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gray-300 rounded-full"></div>
+                    <div class="flex-1">
+                        <p class="font-medium text-sm">Alex Johnson</p>
+                        <p class="text-xs text-gray-500">Premium Plan</p>
+                    </div>
+                    <i class="fas fa-chevron-down text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
+                        <p class="text-gray-500 text-sm">Welcome back! You have 3 scheduled posts today.</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <i class="fas fa-bell text-gray-500 text-xl cursor-pointer hover:text-purple-500"></i>
+                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">3</span>
+                        </div>
+                        <div class="w-10 h-10 bg-gray-200 rounded-full"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="flex-1 p-6 overflow-auto">
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Total Videos</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1">127</p>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-video text-purple-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Scheduled</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1">18</p>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-calendar-alt text-blue-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Published</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1">342</p>
+                            </div>
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-sm">Engagement</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1">4.8%</p>
+                            </div>
+                            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-line text-orange-500 text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Videos & Scheduling -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Recent Videos -->
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-lg font-bold text-gray-800">Recent Videos</h3>
+                            <a href="#" class="text-purple-500 text-sm font-medium hover:underline">View All</a>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg video-card">
+                                <div class="w-20 h-20 bg-gray-300 rounded-lg overflow-hidden">
+                                    <div class="w-full h-full flex items-center justify-center">
+                                        <i class="fas fa-play text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-medium text-gray-800">Summer Travel Vlog</h4>
+                                    <p class="text-sm text-gray-500">45s • 1080p • Added 2 days ago</p>
+                                    <div class="flex items-center space-x-2 mt-1">
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full platform-badge">Instagram</span>
+                                        <span class="px-2 py-1 bg-pink-100 text-pink-600 text-xs rounded-full platform-badge">TikTok</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-purple-500">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center space-x-4 p-3 hover:bg-gray-50 rounded-lg video-card">
+                                <div class="w-20 h-20 bg-gray-300 rounded-lg overflow-hidden">
+                                    <div class="w-full h-full flex items-center justify-center">
+                                        <i class="fas fa-play text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-medium text-gray-800">Product Demo</h4>
+                                    <p class="text-sm text-gray-500">60s • 720p • Added 1 week ago</p>
+                                    <div class="flex items-center space-x-2 mt-1">
+                                        <span class="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full platform-badge">YouTube</span>
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full platform-badge">LinkedIn</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-purple-500">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upcoming Schedule -->
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="text-lg font-bold text-gray-800">Today's Schedule</h3>
+                            <a href="#" class="text-purple-500 text-sm font-medium hover:underline">View Calendar</a>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="p-4 border border-gray-200 rounded-lg">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h4 class="font-medium text-gray-800">Product Launch Announcement</h4>
+                                        <p class="text-sm text-gray-500 mt-1">
+                                            <i class="fas fa-clock text-gray-400 mr-1"></i>
+                                            2:30 PM • 45 minutes from now
+                                        </p>
+                                        <div class="flex items-center space-x-2 mt-2">
+                                            <span class="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full platform-badge">Instagram</span>
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Ready</span>
+                                        </div>
+                                    </div>
+                                    <button class="text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-4 border border-gray-200 rounded-lg">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h4 class="font-medium text-gray-800">Weekly Tutorial</h4>
+                                        <p class="text-sm text-gray-500 mt-1">
+                                            <i class="fas fa-clock text-gray-400 mr-1"></i>
+                                            6:00 PM • 4 hours from now
+                                        </p>
+                                        <div class="flex items-center space-x-2 mt-2">
+                                            <span class="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full platform-badge">YouTube</span>
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Ready</span>
+                                        </div>
+                                    </div>
+                                    <button class="text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connected Platforms -->
+                <div class="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                    <h3 class="text-lg font-bold text-gray-800 mb-5">Connected Platforms</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="p-4 border border-gray-200 rounded-lg flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-instagram text-white"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">Instagram</p>
+                                <p class="text-sm text-green-500">Connected</p>
+                            </div>
+                        </div>
+                        <div class="p-4 border border-gray-200 rounded-lg flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                                <i class="fab fa-tiktok text-white"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">TikTok</p>
+                                <p class="text-sm text-green-500">Connected</p>
+                            </div>
+                        </div>
+                        <div class="p-4 border border-gray-200 rounded-lg flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-youtube text-white"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">YouTube</p>
+                                <p class="text-sm text-green-500">Connected</p>
+                            </div>
+                        </div>
+                        <div class="p-4 border border-gray-200 rounded-lg flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-linkedin text-white"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">LinkedIn</p>
+                                <p class="text-sm text-gray-500">Not Connected</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Upload Modal Example (hidden by default) -->
+    <div id="uploadModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 w-full max-w-md">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Upload Video</h3>
+                <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                <p class="text-gray-600 mb-2">Drag and drop your video file here</p>
+                <p class="text-sm text-gray-500 mb-4">or</p>
+                <button class="bg-purple-500 text-white font-medium py-2 px-6 rounded-lg hover:bg-purple-600">
+                    Browse Files
+                </button>
+                <p class="text-xs text-gray-500 mt-4">Supports MP4, MOV, AVI up to 2GB</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple demo functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Upload button demo
+            document.querySelector('.bg-gradient-to-r').addEventListener('click', function() {
+                document.getElementById('uploadModal').classList.remove('hidden');
+            });
+            
+            // Platform badges hover effect
+            const badges = document.querySelectorAll('.platform-badge');
+            badges.forEach(badge => {
+                badge.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.05)';
+                });
+                badge.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
