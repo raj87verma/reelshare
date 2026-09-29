@@ -71,24 +71,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   authChecked: false,
   authLoading: false,
   authError: null,
-  notifications: [
-    {
-      id: '1',
-      title: 'Video Published',
-      message: 'Your video was successfully published to Instagram',
-      type: 'success',
-      read: false,
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      title: 'Scheduled Post',
-      message: 'Post scheduled for 2:30 PM today',
-      type: 'info',
-      read: false,
-      timestamp: new Date()
-    }
-  ],
+  // Starts empty rather than with two hardcoded fake notifications ("Video
+  // Published... to Instagram", "Scheduled Post... 2:30 PM") that appeared
+  // for every user regardless of whether anything had actually happened.
+  // Real notifications are added via addNotification() as real events
+  // occur (e.g. after login/register -- see below).
+  notifications: [],
 
   // Actions
   initializeApp: async () => {
@@ -266,6 +254,44 @@ declare global {
         saveFile: (sourcePath: string, fileName: string) => Promise<string>;
         getMetadata: (filePath: string) => Promise<any>;
         generateThumbnail: (filePath: string, timestamp?: number) => Promise<string>;
+      };
+      platforms: {
+        authenticate: (userId: string, platformType: string, credentials: Record<string, any>) => Promise<{
+          accessToken: string;
+          refreshToken?: string;
+          expiresAt: string;
+          userId?: string;
+          username?: string;
+        }>;
+        getAllStatuses: (userId: string) => Promise<Array<{
+          platform: string;
+          connected: boolean;
+          username?: string;
+          accountId?: string;
+          expiresAt?: string;
+        }>>;
+        disconnect: (userId: string, platformType: string) => Promise<void>;
+        refreshToken: (userId: string, platformType: string) => Promise<{
+          accessToken: string;
+          refreshToken?: string;
+          expiresAt: string;
+          userId?: string;
+          username?: string;
+        }>;
+        upload: (userId: string, platformType: string, video: Record<string, any>, metadata: Record<string, any>) => Promise<any>;
+        schedule: (userId: string, platformType: string, video: Record<string, any>, scheduleTime: string) => Promise<any>;
+        getAnalytics: (userId: string, platformType: string, postId: string) => Promise<any>;
+      };
+      scheduler: {
+        schedulePost: (postData: Record<string, any>) => Promise<string>;
+        cancelPost: (postId: string) => Promise<void>;
+        reschedulePost: (postId: string, newTime: string) => Promise<void>;
+        getPendingPosts: (userId: string, limit?: number) => Promise<any[]>;
+      };
+      db: {
+        getScheduledPosts: (userId: string, status?: string, limit?: number) => Promise<any[]>;
+        getSocialAccounts: (userId: string) => Promise<any[]>;
+        createSocialAccount: (accountData: Record<string, any>) => Promise<string>;
       };
     };
   }

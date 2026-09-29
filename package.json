@@ -1,6 +1,6 @@
 {
   "name": "reelshare",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Desktop application for sharing video reels across social media platforms",
   "main": "dist/electron/main.js",
   "scripts": {

@@ -1,41 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Check, X } from 'lucide-react';
+import { useSocialAccountsStore, getPlatformIcon, getPlatformColor } from '../store/social-accounts-store';
 
+// Shows the user's *real* platform connection status (read from the
+// social_accounts table via useSocialAccountsStore), rather than the
+// previous version's local hardcoded array, which claimed Instagram,
+// TikTok, and YouTube were always "Connected" regardless of whether the
+// user had actually connected anything at all.
 const ConnectedPlatforms: React.FC = () => {
-  const platforms = [
-    {
-      id: 'instagram',
-      name: 'Instagram',
-      icon: '📷',
-      connected: true,
-      color: 'from-purple-500 to-pink-500'
-    },
-    {
-      id: 'tiktok',
-      name: 'TikTok',
-      icon: '🎵',
-      connected: true,
-      color: 'from-black to-gray-800'
-    },
-    {
-      id: 'youtube',
-      name: 'YouTube',
-      icon: '📺',
-      connected: true,
-      color: 'from-red-500 to-red-700'
-    },
-    {
-      id: 'linkedin',
-      name: 'LinkedIn',
-      icon: '💼',
-      connected: false,
-      color: 'from-blue-500 to-blue-700'
-    }
-  ];
+  const { platforms, getPlatforms } = useSocialAccountsStore();
+
+  useEffect(() => {
+    getPlatforms();
+  }, [getPlatforms]);
+
+  const platformList = Object.values(platforms);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {platforms.map((platform) => (
+      {platformList.map((platform) => (
         <div
           key={platform.id}
           className={`p-4 border rounded-lg flex items-center space-x-3 transition-colors ${
@@ -44,8 +27,8 @@ const ConnectedPlatforms: React.FC = () => {
               : 'border-border/50 opacity-50'
           }`}
         >
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${platform.color} text-white`}>
-            <span className="text-lg">{platform.icon}</span>
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-r ${getPlatformColor(platform.id)} text-white`}>
+            <span className="text-lg">{getPlatformIcon(platform.id)}</span>
           </div>
           
           <div className="flex-1">
@@ -54,7 +37,9 @@ const ConnectedPlatforms: React.FC = () => {
               {platform.connected ? (
                 <>
                   <Check className="w-3 h-3 text-green-500" />
-                  <span className="text-xs text-green-600">Connected</span>
+                  <span className="text-xs text-green-600">
+                    {platform.username ? `@${platform.username}` : 'Connected'}
+                  </span>
                 </>
               ) : (
                 <>

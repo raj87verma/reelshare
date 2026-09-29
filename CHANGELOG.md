@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-09-29
+
+### Fixed
+- **Connecting a social account did nothing / silently "succeeded" with a fake account**: the entire OAuth flow was previously a client-side mock -- clicking "Connect Account" just waited a couple seconds and flipped local state to "connected" with a hardcoded fake username, without ever opening a browser or contacting the real platform. Every platform (Instagram, Facebook, TikTok, YouTube) now runs a real OAuth Authorization Code flow: it opens the platform's actual login/consent page in your system browser and captures the redirect via a local loopback server (`electron/oauth-loopback.ts`), then exchanges the real authorization code for real access/refresh tokens with that platform's API. Connection state is now read from and written to the local encrypted database instead of resetting to hardcoded values on every restart.
+- **No option to schedule an uploaded video**: the "Schedule" button on video cards in the Video Library previously only logged to the developer console and did nothing visible. It now navigates to the Schedule page and opens the scheduling form pre-filled with that video.
+- **Scheduling a post didn't actually schedule anything**: submitting the Schedule form previously only updated in-memory state with fabricated data, so scheduled posts vanished on refresh/restart and the background scheduler never knew about them. Scheduling now persists a real row to the local database and arms a real background job that will actually attempt to publish via the connected platform's API at the scheduled time.
+- **A random/fake profile and fake stats were shown after logging in**: the Dashboard, Social Accounts, and Analytics pages previously displayed hardcoded fabricated data (a "Coming Soon" fake `@traveler_alex` / `@alexcreates` connected-accounts demo, "127 total videos", "342 published", "254,000 views", etc.) regardless of what the logged-in user had actually done. All of these now reflect the real signed-in user's real videos, real scheduled/published posts, and real platform connections; metrics that require a real analytics-collection pipeline not yet built (views, engagement rate) are shown as "not yet available" instead of being invented.
+- Login/register/connect/schedule error messages no longer leak Electron's internal IPC wrapper text; the real underlying error from the platform (e.g. a specific "invalid client secret" message) is shown instead.
+
+### Added
+- `electron/oauth-loopback.ts`: shared local HTTP server used by every platform's OAuth flow to capture the authorization redirect, following the same pattern used by tools like the GitHub CLI for desktop app logins.
+- New `platforms:*` and `scheduler:*` IPC channels (`electron/preload.js`) exposing the previously-orphaned (never wired to the UI) `PlatformManager` and `SchedulerService` backends to the renderer.
+- `getAllPendingScheduledPosts`-backed real publishing path: the background scheduler now calls the real platform upload API instead of waiting 2 seconds and fabricating a fake post ID.
+
 ## [1.0.5] - 2026-09-26
 
 ### Added

@@ -62,6 +62,8 @@ interface ScheduledPost {
   published_time: string | null;
   platform_post_id: string | null;
   error_message: string | null;
+  caption: string | null;
+  hashtags: string | null; // JSON-encoded string array
   created_at: string;
   updated_at: string;
 }
@@ -228,12 +230,23 @@ class DatabaseService {
         published_time DATETIME,
         platform_post_id TEXT,
         error_message TEXT,
+        caption TEXT,
+        hashtags TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
         FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE CASCADE
       )
     `);
+
+    // Migrate pre-1.0.6 scheduled_posts tables (created before caption/
+    // hashtags columns existed).
+    try {
+      this.db.exec(`ALTER TABLE scheduled_posts ADD COLUMN caption TEXT`);
+    } catch { /* column already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE scheduled_posts ADD COLUMN hashtags TEXT`);
+    } catch { /* column already exists */ }
 
     // Analytics table
     this.db.exec(`
@@ -498,6 +511,63 @@ class DatabaseService {
     return null;
   }
 
+  // Looks up the single connected account for a given user+platform.
+  // ReelShare's UI (Social Accounts page) treats each platform as a single
+  // connect/disconnect toggle rather than supporting multiple accounts per
+  // platform, so this is the primary lookup used by the platform manager.
+  async getSocialAccountByPlatform(userId: string, platform: string): Promise<SocialAccount | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(
+      'SELECT * FROM social_accounts WHERE user_id = ? AND platform = ? ORDER BY created_at DESC LIMIT 1'
+    );
+    const account = stmt.get(userId, platform) as SocialAccount | undefined;
+
+    if (account) {
+      return {
+        ...account,
+        access_token: this.decrypt(account.access_token),
+        refresh_token: account.refresh_token ? this.decrypt(account.refresh_token) : null
+      };
+    }
+
+    return null;
+  }
+
+  async updateSocialAccountTokens(
+    id: string,
+    accessToken: string,
+    refreshToken: string | null,
+    expiresAt: string
+  ): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare(`
+      UPDATE social_accounts
+      SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      this.encrypt(accessToken),
+      refreshToken ? this.encrypt(refreshToken) : null,
+      expiresAt,
+      new Date().toISOString(),
+      id
+    );
+  }
+
+  // Disconnects a platform for a user by removing its stored account
+  // row(s) entirely -- there's no "disabled but still stored" state, since
+  // an access token that's been revoked/disconnected shouldn't be kept
+  // around at all.
+  async deleteSocialAccountsByPlatform(userId: string, platform: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('DELETE FROM social_accounts WHERE user_id = ? AND platform = ?');
+    stmt.run(userId, platform);
+  }
+
   // Scheduled posts operations
   async createScheduledPost(post: Omit<ScheduledPost, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
@@ -506,8 +576,8 @@ class DatabaseService {
     const now = new Date().toISOString();
     
     const stmt = this.db.prepare(`
-      INSERT INTO scheduled_posts (id, video_id, account_id, scheduled_time, status, published_time, platform_post_id, error_message, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO scheduled_posts (id, video_id, account_id, scheduled_time, status, published_time, platform_post_id, error_message, caption, hashtags, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     stmt.run(
@@ -519,6 +589,8 @@ class DatabaseService {
       post.published_time || null,
       post.platform_post_id || null,
       post.error_message || null,
+      post.caption || null,
+      post.hashtags || null,
       now,
       now
     );
@@ -763,6 +835,14 @@ export function initDatabase(): void {
   
   ipcMain.handle('db:getSocialAccounts', async (_, userId) => {
     return await dbService.getSocialAccounts(userId);
+  });
+
+  ipcMain.handle('db:getSocialAccountByPlatform', async (_, userId, platform) => {
+    return await dbService.getSocialAccountByPlatform(userId, platform);
+  });
+
+  ipcMain.handle('db:deleteSocialAccountsByPlatform', async (_, userId, platform) => {
+    return await dbService.deleteSocialAccountsByPlatform(userId, platform);
   });
   
   ipcMain.handle('db:createScheduledPost', async (_, postData) => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Search, Filter, Grid, List, MoreVertical, Play, Upload } from 'lucide-react';
 import VideoUpload from '../components/VideoUpload';
 import VideoCard from '../components/VideoCard';
@@ -14,7 +15,7 @@ const VideoLibrary: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [filterPlatform, setFilterPlatform] = useState<string>('all');
   
-  const { videos, loading, getVideos } = useVideoStore();
+  const { videos, loading, getVideos, deleteVideo } = useVideoStore();
 
   useEffect(() => {
     getVideos();
@@ -195,7 +196,20 @@ const VideoLibrary: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {filteredVideos.map(video => (
-                <VideoCard key={video.id} video={video} viewMode="list" />
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  viewMode="list"
+                  onSchedule={(videoId) => navigate('/schedule', { state: { openScheduleForVideoId: videoId } })}
+                  onDelete={async (videoId) => {
+                    if (window.confirm(`Delete "${video.title}"? This also removes the video file from disk and cannot be undone.`)) {
+                      await deleteVideo(videoId);
+                    }
+                  }}
+                  onEdit={() => toast.info('Video editing is not available yet', {
+                    description: 'Trim, compress, and watermark tools are coming in a future update.'
+                  })}
+                />
               ))}
             </div>
           )}

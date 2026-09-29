@@ -13,6 +13,12 @@ import {
 export class InstagramPlatform extends SocialMediaPlatform {
   private pageId: string | null = null;
   private instagramAccountId: string | null = null;
+  // Stashed from the credentials passed to authenticate() so
+  // refreshAccessToken() (which takes no arguments, per the
+  // SocialMediaPlatform interface) can still make Facebook's
+  // fb_exchange_token request, which requires the app's Client ID/Secret.
+  private lastClientId: string | null = null;
+  private lastClientSecret: string | null = null;
 
   constructor() {
     super({
@@ -48,13 +54,15 @@ export class InstagramPlatform extends SocialMediaPlatform {
     try {
       // For Instagram, we need to get a Facebook Page access token first
       const authUrl = this.getAuthUrl(credentials);
-      
-      // In a real implementation, this would open a browser window for OAuth
-      // For now, we'll simulate the flow
-      console.log('Open this URL for authentication:', authUrl);
-      
-      // Simulate getting the authorization code
-      const authCode = 'simulated_auth_code';
+
+      // Opens the real Facebook login/consent dialog (Instagram publishing
+      // goes through the Facebook Graph API) in the system browser and
+      // waits for the redirect (captured by a local loopback server on
+      // credentials.redirectUri) to hand back a real authorization code.
+      const authCode = await this.getRealAuthorizationCode(authUrl, credentials);
+
+      this.lastClientId = credentials.clientId;
+      this.lastClientSecret = credentials.clientSecret;
       
       // Exchange code for access token
       const tokenResponse = await this.makeTokenRequest(credentials, authCode);
@@ -81,6 +89,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       // Get long-lived access token
       const longLivedToken = await this.getLongLivedToken(
         tokenResponse.access_token,
+        credentials.clientId,
         credentials.clientSecret
       );
       
@@ -289,13 +298,16 @@ export class InstagramPlatform extends SocialMediaPlatform {
       if (!this.refreshToken) {
         throw new Error('No refresh token available');
       }
+      if (!this.lastClientId || !this.lastClientSecret) {
+        throw new Error('Missing API credentials for token refresh -- please reconnect this account');
+      }
 
       // Instagram uses Facebook's token refresh system
       const response = await fetch(
         `${this.config.apiBaseUrl}/oauth/access_token?` +
         `grant_type=fb_exchange_token&` +
-        `client_id=${this.getClientId()}&` +
-        `client_secret=${this.getClientSecret()}&` +
+        `client_id=${this.lastClientId}&` +
+        `client_secret=${this.lastClientSecret}&` +
         `fb_exchange_token=${this.refreshToken}`,
         {
           method: 'GET'
@@ -303,7 +315,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
       );
 
       if (!response.ok) {
-        throw new Error('Token refresh failed');
+        return this.parseGraphError(response, 'Token refresh failed');
       }
 
       const data = await response.json() as { access_token: string; expires_in?: number };
@@ -325,6 +337,16 @@ export class InstagramPlatform extends SocialMediaPlatform {
     }
   }
 
+  private async parseGraphError(response: Response, fallback: string): Promise<never> {
+    const body = await response.text();
+    let detail = body;
+    try {
+      const parsed = JSON.parse(body);
+      detail = parsed.error?.message || body;
+    } catch { /* not JSON, use raw body */ }
+    throw new Error(`${fallback}: ${detail}`);
+  }
+
   private async makeTokenRequest(credentials: AuthCredentials, code: string): Promise<any> {
     const response = await fetch(
       `${this.config.tokenUrl}?` +
@@ -338,7 +360,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Token exchange failed');
+      return this.parseGraphError(response, 'Token exchange failed');
     }
 
     return (await response.json()) as Record<string, any>;
@@ -353,7 +375,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get user pages');
+      return this.parseGraphError(response, 'Failed to get user pages');
     }
 
     const data = await response.json() as { data?: any[] };
@@ -371,17 +393,17 @@ export class InstagramPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get Instagram account');
+      return this.parseGraphError(response, 'Failed to get Instagram account');
     }
 
     return (await response.json()) as Record<string, any>;
   }
 
-  private async getLongLivedToken(shortLivedToken: string, clientSecret: string): Promise<string> {
+  private async getLongLivedToken(shortLivedToken: string, clientId: string, clientSecret: string): Promise<string> {
     const response = await fetch(
       `${this.config.apiBaseUrl}/oauth/access_token?` +
       `grant_type=fb_exchange_token&` +
-      `client_id=${this.getClientId()}&` +
+      `client_id=${clientId}&` +
       `client_secret=${clientSecret}&` +
       `fb_exchange_token=${shortLivedToken}`,
       {
@@ -390,7 +412,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get long-lived token');
+      return this.parseGraphError(response, 'Failed to get long-lived token');
     }
 
     const data = await response.json() as { access_token: string };
@@ -408,7 +430,7 @@ export class InstagramPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get page access token');
+      return this.parseGraphError(response, 'Failed to get page access token');
     }
 
     const data = await response.json() as { access_token: string };
@@ -437,15 +459,5 @@ export class InstagramPlatform extends SocialMediaPlatform {
     }
     
     return formatted;
-  }
-
-  private getClientId(): string {
-    // This would come from configuration
-    return process.env.INSTAGRAM_CLIENT_ID || '';
-  }
-
-  private getClientSecret(): string {
-    // This would come from configuration
-    return process.env.INSTAGRAM_CLIENT_SECRET || '';
   }
 }

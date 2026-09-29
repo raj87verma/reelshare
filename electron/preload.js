@@ -11,6 +11,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCurrentUser: () => ipcRenderer.invoke('auth:getCurrentUser')
   },
 
+  // Social platform connections (real OAuth via the system browser + a
+  // local loopback redirect, see electron/oauth-loopback.ts) and
+  // publishing, backed by the social_accounts table in SQLite.
+  platforms: {
+    authenticate: (userId, platformType, credentials) => ipcRenderer.invoke('platforms:authenticate', userId, platformType, credentials),
+    getAllStatuses: (userId) => ipcRenderer.invoke('platforms:getAllStatuses', userId),
+    disconnect: (userId, platformType) => ipcRenderer.invoke('platforms:disconnect', userId, platformType),
+    refreshToken: (userId, platformType) => ipcRenderer.invoke('platforms:refreshToken', userId, platformType),
+    upload: (userId, platformType, video, metadata) => ipcRenderer.invoke('platforms:upload', userId, platformType, video, metadata),
+    schedule: (userId, platformType, video, scheduleTime) => ipcRenderer.invoke('platforms:schedule', userId, platformType, video, scheduleTime),
+    getAnalytics: (userId, platformType, postId) => ipcRenderer.invoke('platforms:getAnalytics', userId, platformType, postId)
+  },
+
+  // Scheduled posts (persisted via SQLite + electron/scheduler.ts's
+  // background cron jobs in the main process).
+  scheduler: {
+    schedulePost: (postData) => ipcRenderer.invoke('scheduler:schedulePost', postData),
+    cancelPost: (postId) => ipcRenderer.invoke('scheduler:cancelPost', postId),
+    reschedulePost: (postId, newTime) => ipcRenderer.invoke('scheduler:reschedulePost', postId, newTime),
+    getPendingPosts: (userId, limit) => ipcRenderer.invoke('scheduler:getPendingPosts', userId, limit)
+  },
+
+  // Direct database reads for scheduled posts (joins video/account info --
+  // see db:getScheduledPosts in electron/database.ts). Used for statuses
+  // beyond just "pending" (published/failed/processing), which
+  // scheduler:getPendingPosts intentionally doesn't return.
+  db: {
+    getScheduledPosts: (userId, status, limit) => ipcRenderer.invoke('db:getScheduledPosts', userId, status, limit),
+    getSocialAccounts: (userId) => ipcRenderer.invoke('db:getSocialAccounts', userId),
+    createSocialAccount: (accountData) => ipcRenderer.invoke('db:createSocialAccount', accountData)
+  },
+
   // Video library (persisted via SQLite in the main process)
   videos: {
     create: (videoData) => ipcRenderer.invoke('db:createVideo', videoData),

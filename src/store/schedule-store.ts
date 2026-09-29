@@ -1,6 +1,27 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { Clock, Upload, Check, AlertCircle, MoreVertical } from 'lucide-react';
+import { useAppStore } from './app-store';
+import { useSocialAccountsStore } from './social-accounts-store';
+
+// See the identical helper in social-accounts-store.ts / app-store.ts --
+// strips Electron's ipcRenderer.invoke() error-wrapper boilerplate so
+// scheduling errors shown to the user are clean (e.g. "TikTok API doesn't
+// support direct scheduling" rather than "Error invoking remote method
+// 'scheduler:schedulePost': Error: ...").
+function cleanIpcErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  let message = raw;
+  for (let i = 0; i < 5; i++) {
+    const ipcMatch = message.match(/^Error invoking remote method '[^']*':\s*(?:Error:\s*)?(.*)$/s);
+    if (ipcMatch) {
+      message = ipcMatch[1].trim();
+      continue;
+    }
+    break;
+  }
+  return message;
+}
 
 export interface ScheduledPost {
   id: string;
@@ -34,6 +55,60 @@ export interface ScheduleData {
   };
 }
 
+// A raw row as returned by the main process's SQLite layer (see
+// dbService.getScheduledPost[s]() in electron/database.ts -- a JOIN
+// across scheduled_posts, videos, and social_accounts).
+interface RawScheduledPostRow {
+  id: string;
+  video_id: string;
+  account_id: string;
+  scheduled_time: string;
+  status: 'pending' | 'processing' | 'published' | 'failed';
+  published_time: string | null;
+  platform_post_id: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  video_title: string;
+  thumbnail_path: string;
+  platform: string;
+  account_name: string;
+  caption: string | null;
+  hashtags: string | null;
+}
+
+const platformDisplayNames: Record<string, string> = {
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  facebook: 'Facebook'
+};
+
+function rowToScheduledPost(row: RawScheduledPostRow): ScheduledPost {
+  return {
+    id: row.id,
+    videoId: row.video_id,
+    videoTitle: row.video_title,
+    videoThumbnail: row.thumbnail_path,
+    platform: row.platform,
+    platformName: platformDisplayNames[row.platform] || row.platform,
+    accountName: row.account_name,
+    scheduledTime: new Date(row.scheduled_time),
+    status: row.status,
+    publishedTime: row.published_time ? new Date(row.published_time) : undefined,
+    platformPostId: row.platform_post_id || undefined,
+    errorMessage: row.error_message || undefined,
+    caption: row.caption || undefined,
+    hashtags: row.hashtags ? JSON.parse(row.hashtags) : undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at)
+  };
+}
+
+function getCurrentUserId(): string | null {
+  return useAppStore.getState().user?.id || null;
+}
+
 interface ScheduleState {
   // Scheduled posts
   scheduledPosts: ScheduledPost[];
@@ -55,103 +130,38 @@ interface ScheduleState {
   clearError: () => void;
 }
 
-export const useScheduleStore = create<ScheduleState>((set, _get) => ({
+export const useScheduleStore = create<ScheduleState>((set, get) => ({
   // Initial state
   scheduledPosts: [],
   loading: false,
   error: null,
 
-  // Actions
+  // Loads this user's real scheduled posts from SQLite (across every
+  // status -- pending/processing/published/failed -- since the Schedule
+  // page's calendar and status counters need all of them, not just the
+  // pending ones the background scheduler cares about). Replaces the
+  // previous version, which returned 5 hardcoded posts referencing a
+  // fictional '@traveler_alex' / '@alexcreates' / 'Alex Channel' account
+  // that was never actually connected.
   getScheduledPosts: async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      set({ scheduledPosts: [], loading: false });
+      return;
+    }
+
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would fetch from the database
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mock data for demonstration
-      const mockPosts: ScheduledPost[] = [
-        {
-          id: '1',
-          videoId: '1',
-          videoTitle: 'Summer Travel Vlog',
-          videoThumbnail: '/thumbnails/summer_vlog.jpg',
-          platform: 'instagram',
-          platformName: 'Instagram',
-          accountName: '@traveler_alex',
-          scheduledTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-          status: 'pending',
-          caption: 'Exploring beautiful European cities this summer! 🌍✈️',
-          hashtags: ['travel', 'europe', 'summer', 'vlog'],
-          createdAt: new Date('2024-09-25'),
-          updatedAt: new Date('2024-09-25')
-        },
-        {
-          id: '2',
-          videoId: '2',
-          videoTitle: 'Product Demo',
-          videoThumbnail: '/thumbnails/product_demo.jpg',
-          platform: 'tiktok',
-          platformName: 'TikTok',
-          accountName: '@alexcreates',
-          scheduledTime: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
-          status: 'pending',
-          caption: 'Check out our new features! #tech #demo',
-          hashtags: ['tech', 'demo', 'product'],
-          createdAt: new Date('2024-09-24'),
-          updatedAt: new Date('2024-09-24')
-        },
-        {
-          id: '3',
-          videoId: '1',
-          videoTitle: 'Summer Travel Vlog',
-          videoThumbnail: '/thumbnails/summer_vlog.jpg',
-          platform: 'youtube',
-          platformName: 'YouTube',
-          accountName: 'Alex Channel',
-          scheduledTime: new Date('2024-09-27T14:30:00'),
-          status: 'pending',
-          caption: 'Full travel vlog from my European adventure!',
-          hashtags: ['travelvlog', 'europe', 'summer'],
-          createdAt: new Date('2024-09-23'),
-          updatedAt: new Date('2024-09-23')
-        },
-        {
-          id: '4',
-          videoId: '3',
-          videoTitle: 'Morning Routine',
-          videoThumbnail: '/thumbnails/morning_routine.jpg',
-          platform: 'instagram',
-          platformName: 'Instagram',
-          accountName: '@traveler_alex',
-          scheduledTime: new Date('2024-09-20T08:00:00'),
-          status: 'published',
-          publishedTime: new Date('2024-09-20T08:00:00'),
-          platformPostId: 'instagram_12345',
-          caption: 'My productive morning routine! 🌅☕',
-          hashtags: ['morningroutine', 'productivity', 'health'],
-          createdAt: new Date('2024-09-19'),
-          updatedAt: new Date('2024-09-20')
-        },
-        {
-          id: '5',
-          videoId: '4',
-          videoTitle: 'Cooking Tutorial',
-          videoThumbnail: '/thumbnails/cooking_tutorial.jpg',
-          platform: 'tiktok',
-          platformName: 'TikTok',
-          accountName: '@alexcreates',
-          scheduledTime: new Date('2024-09-18T18:00:00'),
-          status: 'failed',
-          errorMessage: 'Upload timeout - network connection lost',
-          caption: 'Quick and easy pasta recipe!',
-          hashtags: ['cooking', 'recipe', 'food'],
-          createdAt: new Date('2024-09-17'),
-          updatedAt: new Date('2024-09-18')
-        }
-      ];
-      
-      set({ scheduledPosts: mockPosts, loading: false });
+      if (!window.electronAPI?.db?.getScheduledPosts) {
+        set({ scheduledPosts: [], loading: false });
+        return;
+      }
+
+      const rows = (await window.electronAPI.db.getScheduledPosts(userId, undefined, 500)) as RawScheduledPostRow[];
+      const scheduledPosts = rows.map(rowToScheduledPost);
+
+      set({ scheduledPosts, loading: false });
       
     } catch (error) {
       set({ 
@@ -162,66 +172,70 @@ export const useScheduleStore = create<ScheduleState>((set, _get) => ({
     }
   },
 
+  // Persists a scheduled post per selected platform via the real
+  // scheduler:schedulePost IPC channel (electron/scheduler.ts), which
+  // inserts a row into the scheduled_posts SQLite table and arms a real
+  // cron job that will actually attempt to publish via that platform's
+  // API when the scheduled time arrives. Replaces the previous version,
+  // which waited 1 second and pushed fabricated ScheduledPost objects
+  // into local state only -- nothing was ever saved, so the schedule
+  // vanished on refresh/restart and the background scheduler never knew
+  // about it.
   createScheduledPost: async (data: ScheduleData): Promise<string> => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      throw new Error('You must be logged in to schedule a post');
+    }
+
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would:
-      // 1. Validate data
-      // 2. Create entries in database
-      // 3. Schedule with the scheduler service
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const postId = `scheduled_${Date.now()}`;
-      
-      // For now, create mock posts for each platform
-      const newPosts: ScheduledPost[] = data.platformIds.map((platformId, index) => {
-        const platformNames: Record<string, string> = {
-          instagram: 'Instagram',
-          tiktok: 'TikTok',
-          youtube: 'YouTube'
-        };
-        
-        const accountNames: Record<string, string> = {
-          instagram: '@traveler_alex',
-          tiktok: '@alexcreates',
-          youtube: 'Alex Channel'
-        };
-        
-        return {
-          id: `${postId}_${index}`,
-          videoId: data.videoId,
-          videoTitle: 'New Video', // Would be fetched from video store
-          videoThumbnail: '/thumbnails/default.jpg',
-          platform: platformId,
-          platformName: platformNames[platformId] || platformId,
-          accountName: accountNames[platformId] || 'Unknown',
-          scheduledTime: data.scheduledTime,
+      if (!window.electronAPI?.scheduler?.schedulePost) {
+        throw new Error('Scheduling is not available in this environment');
+      }
+
+      const platforms = useSocialAccountsStore.getState().platforms;
+      const scheduledIds: string[] = [];
+
+      for (const platformId of data.platformIds) {
+        const accountId = platforms[platformId]?.accountId;
+        if (!accountId) {
+          // Should not normally happen -- the Schedule form only lets
+          // the user pick platforms that are already connected -- but
+          // guard against a stale/disconnected platform between form
+          // open and submit rather than silently dropping this platform.
+          console.error(`No connected account id found for platform "${platformId}"; skipping`);
+          continue;
+        }
+
+        const postId: string = await window.electronAPI.scheduler.schedulePost({
+          video_id: data.videoId,
+          account_id: accountId,
+          scheduled_time: data.scheduledTime.toISOString(),
           status: 'pending',
-          caption: data.caption,
-          hashtags: data.hashtags,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-      });
-      
-      set(state => ({
-        scheduledPosts: [...newPosts, ...state.scheduledPosts],
-        loading: false
-      }));
-      
-      toast.success(`Scheduled ${data.platformIds.length} post(s) for ${data.scheduledTime.toLocaleString()}`);
-      
-      return postId;
+          caption: data.caption || null,
+          hashtags: data.hashtags ? JSON.stringify(data.hashtags) : null
+        });
+        scheduledIds.push(postId);
+      }
+
+      if (scheduledIds.length === 0) {
+        throw new Error('None of the selected platforms have a connected account anymore');
+      }
+
+      set({ loading: false });
+      toast.success(`Scheduled ${scheduledIds.length} post(s) for ${data.scheduledTime.toLocaleString()}`);
+
+      // Refresh the list so the new post(s) show up immediately.
+      await get().getScheduledPosts();
+
+      return scheduledIds[0];
       
     } catch (error) {
-      set({ 
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to schedule post'
-      });
-      toast.error('Failed to schedule post');
-      throw error;
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
+      throw new Error(message);
     }
   },
 
@@ -229,26 +243,22 @@ export const useScheduleStore = create<ScheduleState>((set, _get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would update in the database
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      set(state => ({
-        scheduledPosts: state.scheduledPosts.map(post =>
-          post.id === id
-            ? { ...post, ...updates, updatedAt: new Date() }
-            : post
-        ),
-        loading: false
-      }));
+      if (updates.scheduledTime) {
+        if (!window.electronAPI?.scheduler?.reschedulePost) {
+          throw new Error('Scheduling is not available in this environment');
+        }
+        await window.electronAPI.scheduler.reschedulePost(id, updates.scheduledTime.toISOString());
+      }
+
+      await get().getScheduledPosts();
+      set({ loading: false });
       
       toast.success('Schedule updated successfully');
       
     } catch (error) {
-      set({ 
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to update schedule'
-      });
-      toast.error('Failed to update schedule');
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
     }
   },
 
@@ -256,22 +266,23 @@ export const useScheduleStore = create<ScheduleState>((set, _get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would delete from the database
-      await new Promise(resolve => setTimeout(resolve, 300));
+      if (!window.electronAPI?.scheduler?.cancelPost) {
+        throw new Error('Scheduling is not available in this environment');
+      }
+
+      await window.electronAPI.scheduler.cancelPost(id);
       
       set(state => ({
         scheduledPosts: state.scheduledPosts.filter(post => post.id !== id),
         loading: false
       }));
       
-      toast.success('Schedule deleted successfully');
+      toast.success('Schedule cancelled successfully');
       
     } catch (error) {
-      set({ 
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to delete schedule'
-      });
-      toast.error('Failed to delete schedule');
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
     }
   },
 
@@ -279,29 +290,20 @@ export const useScheduleStore = create<ScheduleState>((set, _get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would:
-      // 1. Cancel with the scheduler service
-      // 2. Update status in database
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      set(state => ({
-        scheduledPosts: state.scheduledPosts.map(post =>
-          post.id === id
-            ? { ...post, status: 'failed', errorMessage: 'Cancelled by user', updatedAt: new Date() }
-            : post
-        ),
-        loading: false
-      }));
+      if (!window.electronAPI?.scheduler?.cancelPost) {
+        throw new Error('Scheduling is not available in this environment');
+      }
+
+      await window.electronAPI.scheduler.cancelPost(id);
+      await get().getScheduledPosts();
+      set({ loading: false });
       
       toast.success('Schedule cancelled successfully');
       
     } catch (error) {
-      set({ 
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to cancel schedule'
-      });
-      toast.error('Failed to cancel schedule');
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
     }
   },
 
@@ -309,76 +311,48 @@ export const useScheduleStore = create<ScheduleState>((set, _get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would:
-      // 1. Reschedule with the scheduler service
-      // 2. Update time in database
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      set(state => ({
-        scheduledPosts: state.scheduledPosts.map(post =>
-          post.id === id
-            ? { ...post, scheduledTime: newTime, updatedAt: new Date() }
-            : post
-        ),
-        loading: false
-      }));
+      if (!window.electronAPI?.scheduler?.reschedulePost) {
+        throw new Error('Scheduling is not available in this environment');
+      }
+
+      await window.electronAPI.scheduler.reschedulePost(id, newTime.toISOString());
+      await get().getScheduledPosts();
+      set({ loading: false });
       
       toast.success('Post rescheduled successfully');
       
     } catch (error) {
-      set({ 
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to reschedule'
-      });
-      toast.error('Failed to reschedule');
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
     }
   },
 
+  // Immediate/manual publish is not yet wired to a dedicated "publish
+  // right now" IPC channel (electron/scheduler.ts's executePost() is
+  // currently only triggered by a post's own cron job firing at its
+  // scheduled time). Rather than fake success/failure locally as the
+  // previous version did, this reschedules the post to "now" so the
+  // real background scheduler picks it up and actually attempts to
+  // publish via the real platform API on its next tick.
   publishNow: async (id: string) => {
     set({ loading: true, error: null });
     
     try {
-      // In a real app, this would:
-      // 1. Trigger immediate publish via platform APIs
-      // 2. Update status in database
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      set(state => ({
-        scheduledPosts: state.scheduledPosts.map(post =>
-          post.id === id
-            ? { 
-                ...post, 
-                status: 'published', 
-                publishedTime: new Date(),
-                scheduledTime: new Date(),
-                updatedAt: new Date() 
-              }
-            : post
-        ),
-        loading: false
-      }));
-      
-      toast.success('Post published successfully');
+      if (!window.electronAPI?.scheduler?.reschedulePost) {
+        throw new Error('Scheduling is not available in this environment');
+      }
+
+      await window.electronAPI.scheduler.reschedulePost(id, new Date().toISOString());
+      await get().getScheduledPosts();
+      set({ loading: false });
+
+      toast.success('Post queued for immediate publishing');
       
     } catch (error) {
-      set(state => ({
-        scheduledPosts: state.scheduledPosts.map(post =>
-          post.id === id
-            ? { 
-                ...post, 
-                status: 'failed', 
-                errorMessage: 'Failed to publish immediately',
-                updatedAt: new Date() 
-              }
-            : post
-        ),
-        loading: false,
-        error: error instanceof Error ? error.message : 'Failed to publish'
-      }));
-      
-      toast.error('Failed to publish post');
+      const message = cleanIpcErrorMessage(error);
+      set({ loading: false, error: message });
+      toast.error(message);
     }
   },
 

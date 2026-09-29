@@ -11,6 +11,8 @@ import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import { useAppStore } from './store/app-store';
 import { useVideoStore } from './store/video-store';
+import { useSocialAccountsStore } from './store/social-accounts-store';
+import { useScheduleStore } from './store/schedule-store';
 
 // Handles app-wide effects that need router context (e.g. navigating in
 // response to tray menu actions), separate from the top-level App component
@@ -18,6 +20,8 @@ import { useVideoStore } from './store/video-store';
 function AppEffects() {
   const { initializeApp, user, authChecked } = useAppStore();
   const { getVideos } = useVideoStore();
+  const { getPlatforms } = useSocialAccountsStore();
+  const { getScheduledPosts } = useScheduleStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,16 +54,18 @@ function AppEffects() {
     };
   }, [initializeApp]);
 
-  // Reload the video library whenever the logged-in user changes (login,
-  // logout, or switching accounts), so one user's videos never briefly
-  // appear for another, and a freshly logged-in user immediately sees
-  // their own library rather than stale/empty state left over from
-  // before login.
+  // Reload the video library, connected platforms, and scheduled posts
+  // whenever the logged-in user changes (login, logout, or switching
+  // accounts), so one user's data never briefly appears for another, and
+  // a freshly logged-in user immediately sees their own real data rather
+  // than stale/empty/mock state left over from before login.
   useEffect(() => {
     if (user) {
       getVideos();
+      getPlatforms();
+      getScheduledPosts();
     }
-  }, [user, getVideos]);
+  }, [user, getVideos, getPlatforms, getScheduledPosts]);
 
   // While the initial session check is in flight, render nothing rather
   // than briefly flashing the Login screen before we know whether a user

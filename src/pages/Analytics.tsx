@@ -1,25 +1,31 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAnalyticsStore } from '@/store/analytics-store';
 
+// Post counts below (Total Posts, Scheduled, per-platform bar chart) are
+// real, derived from the actual scheduled_posts data. Views, engagement
+// rate, and "top performing content" are NOT shown here: those require a
+// real analytics-collection pipeline that calls back to each platform's
+// API after a post is published to fetch view/like/comment/share counts
+// (see electron/social-platforms/*.ts's getAnalytics() methods, which
+// exist and work, but nothing in the app calls them yet on a schedule).
+// The previous version of this page showed fabricated totals (254,000
+// views, 4.2% engagement, a fixed "Top Performing Content" list of videos
+// that were never actually uploaded) that never changed regardless of
+// what the user did.
 const Analytics: React.FC = () => {
-  const { analyticsData } = useAnalyticsStore();
+  const { analyticsData, fetchAnalytics } = useAnalyticsStore();
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
   const platformData = [
-    { name: 'Instagram', posts: analyticsData.platformStats.instagram.totalPosts, engagement: analyticsData.platformStats.instagram.avgEngagement },
-    { name: 'TikTok', posts: analyticsData.platformStats.tiktok.totalPosts, engagement: analyticsData.platformStats.tiktok.avgEngagement },
-    { name: 'YouTube', posts: analyticsData.platformStats.youtube.totalPosts, engagement: analyticsData.platformStats.youtube.avgEngagement },
-  ];
-
-  const engagementData = [
-    { day: 'Mon', engagement: 45 },
-    { day: 'Tue', engagement: 52 },
-    { day: 'Wed', engagement: 61 },
-    { day: 'Thu', engagement: 58 },
-    { day: 'Fri', engagement: 72 },
-    { day: 'Sat', engagement: 85 },
-    { day: 'Sun', engagement: 78 },
+    { name: 'Instagram', posts: analyticsData.platformStats.instagram.totalPosts },
+    { name: 'TikTok', posts: analyticsData.platformStats.tiktok.totalPosts },
+    { name: 'YouTube', posts: analyticsData.platformStats.youtube.totalPosts },
+    { name: 'Facebook', posts: analyticsData.platformStats.facebook.totalPosts },
   ];
 
   return (
@@ -27,43 +33,19 @@ const Analytics: React.FC = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground">
-          Track your video performance across all platforms
+          Track your posting activity across all platforms
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
+            <CardTitle className="text-sm font-medium">Published Posts</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.totalPosts}</div>
             <p className="text-xs text-muted-foreground">
               Across all platforms
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalViews.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +12% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Engagement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.avgEngagement}%</div>
-            <p className="text-xs text-muted-foreground">
-              +3.2% from last month
             </p>
           </CardContent>
         </Card>
@@ -81,73 +63,41 @@ const Analytics: React.FC = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Platform Performance</CardTitle>
-            <CardDescription>Posts and engagement by platform</CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Posts by Platform</CardTitle>
+          <CardDescription>Published posts per platform</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {analyticsData.totalPosts === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              No published posts yet. Schedule and publish a video to see activity here.
+            </div>
+          ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={platformData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis allowDecimals={false} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="posts" name="Total Posts" fill="#8884d8" />
-                <Bar dataKey="engagement" name="Avg Engagement %" fill="#82ca9d" />
+                <Bar dataKey="posts" name="Published Posts" fill="#8884d8" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Weekly Engagement</CardTitle>
-            <CardDescription>Engagement rate over the past week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={engagementData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="engagement" name="Engagement %" stroke="#8884d8" activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Top Performing Content</CardTitle>
-          <CardDescription>Your best performing videos</CardDescription>
+          <CardTitle>Views &amp; Engagement</CardTitle>
+          <CardDescription>Per-post performance metrics</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {analyticsData.topVideos.map((video, index) => (
-              <div key={video.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{video.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {video.platform} • {video.views.toLocaleString()} views • {video.engagement}% engagement
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">{video.views.toLocaleString()} views</div>
-                  <div className="text-sm text-muted-foreground">{video.engagement}% engagement</div>
-                </div>
-              </div>
-            ))}
+          <div className="text-center py-12 text-muted-foreground">
+            View counts and engagement rates aren't available yet. This requires
+            fetching per-post analytics back from each platform after publishing,
+            which isn't wired up in this version of ReelShare.
           </div>
         </CardContent>
       </Card>

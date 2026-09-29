@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { runLoopbackAuth } from '../oauth-loopback';
 
 export interface AuthCredentials {
   clientId: string;
@@ -244,6 +245,26 @@ export abstract class SocialMediaPlatform {
     });
 
     return `${this.config.authUrl}?${params.toString()}`;
+  }
+
+  // Runs the real OAuth Authorization Code flow: opens `authUrl` (built by
+  // the caller, since each platform's query parameter names/shape differ
+  // slightly -- e.g. TikTok uses client_key not client_id) in the user's
+  // system browser and waits for the redirect to be captured by a local
+  // loopback HTTP server on credentials.redirectUri. Resolves with the
+  // real authorization code from the platform, or rejects with an error
+  // safe to show directly to the user (denied, timed out, bad redirect
+  // URI, port conflict, etc.).
+  //
+  // This replaces the previous behaviour across every platform subclass,
+  // which never opened a browser at all and used a hardcoded
+  // 'simulated_<platform>_auth_code' string instead -- meaning no user
+  // credential, however correct, could ever actually authenticate.
+  protected async getRealAuthorizationCode(authUrl: string, credentials: AuthCredentials): Promise<string> {
+    return runLoopbackAuth({
+      authUrl,
+      redirectUri: credentials.redirectUri
+    });
   }
 
   protected calculateEngagementRate(analytics: Partial<AnalyticsData>): number {

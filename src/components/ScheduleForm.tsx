@@ -162,6 +162,13 @@ const ScheduleForm: React.FC<ScheduleFormProps> = ({
         <p className="text-sm text-muted-foreground mb-4">
           Choose which platforms to publish to
         </p>
+        {platforms.length === 0 && (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 mb-4">
+            No social accounts are connected yet. Go to{' '}
+            <span className="font-medium">Social Accounts</span> and connect at least one
+            platform before scheduling a post.
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {platforms.map(platform => (
             <button

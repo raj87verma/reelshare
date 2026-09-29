@@ -12,6 +12,12 @@ import {
 
 export class YouTubePlatform extends SocialMediaPlatform {
   private channelId: string | null = null;
+  // Stashed from the credentials passed to authenticate() so
+  // refreshAccessToken() (which takes no arguments, per the
+  // SocialMediaPlatform interface) can still include client_id/secret in
+  // its refresh_token request.
+  private lastClientId: string | null = null;
+  private lastClientSecret: string | null = null;
 
   constructor() {
     super({
@@ -38,11 +44,11 @@ export class YouTubePlatform extends SocialMediaPlatform {
   async authenticate(credentials: AuthCredentials): Promise<AuthResult> {
     try {
       const authUrl = this.getGoogleAuthUrl(credentials);
-      
-      console.log('Open this URL for YouTube authentication:', authUrl);
-      
-      // Simulate getting the authorization code
-      const authCode = 'simulated_youtube_auth_code';
+
+      // Opens the real Google consent screen in the system browser and
+      // waits for the redirect (captured by a local loopback server on
+      // credentials.redirectUri) to hand back a real authorization code.
+      const authCode = await this.getRealAuthorizationCode(authUrl, credentials);
       
       // Exchange code for access token
       const tokenResponse = await this.makeTokenRequest(credentials, authCode);
@@ -51,6 +57,8 @@ export class YouTubePlatform extends SocialMediaPlatform {
       const channelInfo = await this.getChannelInfo(tokenResponse.access_token);
       
       this.channelId = channelInfo.items?.[0]?.id || null;
+      this.lastClientId = credentials.clientId;
+      this.lastClientSecret = credentials.clientSecret;
       
       const result: AuthResult = {
         accessToken: tokenResponse.access_token,
@@ -229,6 +237,9 @@ export class YouTubePlatform extends SocialMediaPlatform {
       if (!this.refreshToken) {
         throw new Error('No refresh token available');
       }
+      if (!this.lastClientId || !this.lastClientSecret) {
+        throw new Error('Missing API credentials for token refresh -- please reconnect this account');
+      }
 
       const response = await fetch(this.config.tokenUrl, {
         method: 'POST',
@@ -236,15 +247,21 @@ export class YouTubePlatform extends SocialMediaPlatform {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: new URLSearchParams({
-          client_id: this.getClientId(),
-          client_secret: this.getClientSecret(),
+          client_id: this.lastClientId,
+          client_secret: this.lastClientSecret,
           refresh_token: this.refreshToken,
           grant_type: 'refresh_token'
         })
       });
 
       if (!response.ok) {
-        throw new Error('Token refresh failed');
+        const body = await response.text();
+        let detail = body;
+        try {
+          const parsed = JSON.parse(body);
+          detail = parsed.error_description || parsed.error || body;
+        } catch { /* not JSON, use raw body */ }
+        throw new Error(`Token refresh failed: ${detail}`);
       }
 
       const data = await response.json() as { access_token: string; expires_in: number };
@@ -296,7 +313,17 @@ export class YouTubePlatform extends SocialMediaPlatform {
     });
 
     if (!response.ok) {
-      throw new Error('Token exchange failed');
+      // Surface Google's actual error (e.g. "invalid_client" / "The
+      // provided client secret is invalid.") instead of a generic
+      // message, since a wrong Client ID/Secret is one of the most common
+      // reasons this fails and users need to know which credential to fix.
+      const body = await response.text();
+      let detail = body;
+      try {
+        const parsed = JSON.parse(body);
+        detail = parsed.error_description || parsed.error || body;
+      } catch { /* not JSON, use raw body */ }
+      throw new Error(`Token exchange failed: ${detail}`);
     }
 
     return (await response.json()) as Record<string, any>;
@@ -393,11 +420,4 @@ export class YouTubePlatform extends SocialMediaPlatform {
     ].join('\r\n');
   }
 
-  private getClientId(): string {
-    return process.env.YOUTUBE_CLIENT_ID || '';
-  }
-
-  private getClientSecret(): string {
-    return process.env.YOUTUBE_CLIENT_SECRET || '';
-  }
 }

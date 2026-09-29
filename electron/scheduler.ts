@@ -1,6 +1,7 @@
 import { CronJob } from 'cron';
 import { ipcMain } from 'electron';
 import { dbService } from './database';
+import { platformManager, PlatformType } from './social-platforms/manager';
 
 interface ScheduledTask {
   id: string;
@@ -135,8 +136,6 @@ class SchedulerService {
         throw new Error('Social account not found');
       }
       
-      // TODO: Implement actual platform publishing
-      // This would call the respective social media API
       const platformPostId = await this.publishToPlatform(account, video);
       
       // Mark as published
@@ -165,17 +164,33 @@ class SchedulerService {
     }
   }
 
+  // Actually uploads the video to the target platform using the stored,
+  // encrypted access token for that social account, via the same
+  // PlatformManager used by the "Upload Now" / Social Accounts flows.
+  // Previously this just waited 2 seconds and returned a fake
+  // `platform_post_<timestamp>` id without ever contacting a real
+  // platform, so every "successfully published" scheduled post was
+  // fabricated.
   private async publishToPlatform(account: any, video: any): Promise<string> {
-    // Simulate platform publishing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // In a real implementation, this would:
-    // 1. Check if access token is valid (refresh if needed)
-    // 2. Upload video to platform
-    // 3. Set caption/metadata
-    // 4. Return platform post ID
-    
-    return `platform_post_${Date.now()}`;
+    const platform = account.platform as PlatformType;
+
+    const result = await platformManager.uploadToPlatform(
+      account.user_id,
+      platform,
+      {
+        filePath: video.file_path,
+        title: video.title,
+        description: video.description || '',
+        thumbnailPath: video.thumbnail_path || undefined
+      },
+      {}
+    );
+
+    if (!result.success || !result.postId) {
+      throw new Error(result.error || 'Publishing failed for an unknown reason');
+    }
+
+    return result.postId;
   }
 
   private dateToCron(date: Date): string {
@@ -191,16 +206,16 @@ class SchedulerService {
   async scheduleNewPost(postData: any): Promise<string> {
     try {
       const postId = await dbService.createScheduledPost(postData);
-      
-      // Schedule the post
-      const post = {
-        id: postId,
-        ...postData,
-        video_title: 'New Video', // Would be fetched from DB
-        platform: 'instagram' // Would be fetched from DB
-      };
-      
-      await this.schedulePost(post);
+
+      // Re-fetch the just-created post with its joined video_title/
+      // platform/account_name columns (see dbService.getScheduledPost)
+      // instead of guessing at hardcoded placeholder values -- this is
+      // what schedulePost()'s log line and the cron task description
+      // actually display.
+      const post = await dbService.getScheduledPost(postId);
+      if (post) {
+        await this.schedulePost(post);
+      }
       
       return postId;
     } catch (error) {

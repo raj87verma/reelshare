@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, Clock, Filter, Upload, Check, AlertCircle } from 'lucide-react';
 import ScheduleCalendar from '../components/ScheduleCalendar';
 import ScheduleForm from '../components/ScheduleForm';
@@ -8,6 +9,8 @@ import { useVideoStore } from '../store/video-store';
 import { useSocialAccountsStore } from '../store/social-accounts-store';
 
 const Schedule: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
@@ -23,12 +26,26 @@ const Schedule: React.FC = () => {
   } = useScheduleStore();
   
   const { videos, getVideos } = useVideoStore();
-  const { platforms } = useSocialAccountsStore();
+  const { platforms, getPlatforms } = useSocialAccountsStore();
 
   useEffect(() => {
     getScheduledPosts();
     getVideos();
-  }, [getScheduledPosts, getVideos]);
+    getPlatforms();
+  }, [getScheduledPosts, getVideos, getPlatforms]);
+
+  // If we were navigated here from a video card's "Schedule" button (with
+  // { state: { openScheduleForVideoId } }), open the schedule form
+  // pre-filled with that video right away, and clear the navigation state
+  // so it doesn't reopen on subsequent visits to this page.
+  useEffect(() => {
+    const videoId = (location.state as { openScheduleForVideoId?: string } | null)?.openScheduleForVideoId;
+    if (videoId) {
+      setSelectedVideo(videoId);
+      setShowScheduleForm(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);

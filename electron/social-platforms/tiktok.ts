@@ -12,6 +12,11 @@ import {
 
 export class TikTokPlatform extends SocialMediaPlatform {
   private openId: string | null = null;
+  // Stashed from the credentials passed to authenticate() so
+  // refreshAccessToken() (which takes no arguments, per the
+  // SocialMediaPlatform interface) can still include client_key in its
+  // refresh_token request.
+  private lastClientKey: string | null = null;
 
   constructor() {
     super({
@@ -42,13 +47,13 @@ export class TikTokPlatform extends SocialMediaPlatform {
 
   async authenticate(credentials: AuthCredentials): Promise<AuthResult> {
     try {
-      const authUrl = this.getAuthUrl(credentials);
-      
-      // In a real implementation, this would open a browser window for OAuth
-      console.log('Open this URL for TikTok authentication:', authUrl);
-      
-      // Simulate getting the authorization code
-      const authCode = 'simulated_tiktok_auth_code';
+      const authUrl = this.getTikTokAuthUrl(credentials);
+
+      // Opens the real TikTok login/consent dialog in the system browser
+      // and waits for the redirect (captured by a local loopback server
+      // on credentials.redirectUri) to hand back a real authorization
+      // code.
+      const authCode = await this.getRealAuthorizationCode(authUrl, credentials);
       
       // Exchange code for access token
       const tokenResponse = await this.makeTokenRequest(credentials, authCode);
@@ -58,6 +63,7 @@ export class TikTokPlatform extends SocialMediaPlatform {
       }
       
       this.openId = tokenResponse.data.open_id;
+      this.lastClientKey = credentials.clientId;
       
       const result: AuthResult = {
         accessToken: tokenResponse.data.access_token,
@@ -248,13 +254,16 @@ export class TikTokPlatform extends SocialMediaPlatform {
       if (!this.refreshToken) {
         throw new Error('No refresh token available');
       }
+      if (!this.lastClientKey) {
+        throw new Error('Missing API credentials for token refresh -- please reconnect this account');
+      }
 
       const response = await this.makeRequest(
         `${this.config.tokenUrl}/refresh_token`,
         {
           method: 'POST',
           body: JSON.stringify({
-            client_key: this.getClientKey(),
+            client_key: this.lastClientKey,
             grant_type: 'refresh_token',
             refresh_token: this.refreshToken
           })
@@ -286,6 +295,21 @@ export class TikTokPlatform extends SocialMediaPlatform {
     }
   }
 
+  // TikTok's v2 authorize endpoint uses `client_key` as the query param
+  // name (not `client_id`, unlike every other platform here), so the
+  // shared SocialMediaPlatform.getAuthUrl() helper can't be reused as-is.
+  private getTikTokAuthUrl(credentials: AuthCredentials): string {
+    const params = new URLSearchParams({
+      client_key: credentials.clientId,
+      redirect_uri: credentials.redirectUri,
+      response_type: 'code',
+      scope: credentials.scopes.join(','),
+      state: this.generateState()
+    });
+
+    return `${this.config.authUrl}?${params.toString()}`;
+  }
+
   private async makeTokenRequest(credentials: AuthCredentials, code: string): Promise<any> {
     const response = await fetch(
       this.config.tokenUrl,
@@ -305,7 +329,13 @@ export class TikTokPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Token exchange failed');
+      const body = await response.text();
+      let detail = body;
+      try {
+        const parsed = JSON.parse(body);
+        detail = parsed.error_description || parsed.error?.message || parsed.message || body;
+      } catch { /* not JSON, use raw body */ }
+      throw new Error(`Token exchange failed: ${detail}`);
     }
 
     return (await response.json()) as Record<string, any>;
@@ -327,8 +357,4 @@ export class TikTokPlatform extends SocialMediaPlatform {
     return formatted;
   }
 
-  private getClientKey(): string {
-    // This would come from configuration
-    return process.env.TIKTOK_CLIENT_KEY || '';
-  }
 }

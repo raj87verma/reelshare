@@ -50,6 +50,14 @@ const SocialAccounts: React.FC = () => {
     }
 
     setConnectingPlatform(platformId);
+
+    // This opens the platform's real login/consent page in the system
+    // browser and waits (up to 5 minutes) for the user to finish there --
+    // it is not instantaneous like the previous mock implementation, so
+    // let the user know what to expect.
+    toast.info(`Opening ${platformId} login in your browser...`, {
+      description: 'Complete the login there, then come back to ReelShare.'
+    });
     
     try {
       const creds = (settings.apiCredentials as any)[platformId];
@@ -62,7 +70,15 @@ const SocialAccounts: React.FC = () => {
       
       toast.success(`Connected to ${platformId} successfully`);
     } catch (error) {
-      toast.error(`Failed to connect to ${platformId}`);
+      // Show the real underlying error (e.g. "invalid_client" / "The
+      // provided client secret is invalid.") rather than a generic
+      // message -- this is almost always caused by a wrong Client ID/
+      // Secret/Redirect URI or the platform app not being configured
+      // correctly, and the user needs to know which one to fix.
+      const message = error instanceof Error ? error.message : `Failed to connect to ${platformId}`;
+      toast.error(`Failed to connect to ${platformId}`, {
+        description: message
+      });
     } finally {
       setConnectingPlatform(null);
     }

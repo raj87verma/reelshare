@@ -44,11 +44,11 @@ export class FacebookPlatform extends SocialMediaPlatform {
     try {
       const authUrl = this.getAuthUrl(credentials);
 
-      // In a real implementation, this would open a browser window for OAuth
-      console.log('Open this URL for Facebook authentication:', authUrl);
-
-      // Simulate getting the authorization code
-      const authCode = 'simulated_facebook_auth_code';
+      // Opens the real Facebook login/consent dialog in the system
+      // browser and waits for the redirect (captured by a local loopback
+      // server on credentials.redirectUri) to hand back a real
+      // authorization code.
+      const authCode = await this.getRealAuthorizationCode(authUrl, credentials);
 
       // Exchange code for a short-lived user access token
       const tokenResponse = await this.makeTokenRequest(credentials, authCode);
@@ -68,6 +68,7 @@ export class FacebookPlatform extends SocialMediaPlatform {
       // Exchange for a long-lived user token, then a long-lived Page token
       const longLivedUserToken = await this.getLongLivedToken(
         tokenResponse.access_token,
+        credentials.clientId,
         credentials.clientSecret
       );
       const pageToken = await this.getPageAccessToken(page.id, longLivedUserToken);
@@ -262,6 +263,16 @@ export class FacebookPlatform extends SocialMediaPlatform {
     }
   }
 
+  private async parseGraphError(response: Response, fallback: string): Promise<never> {
+    const body = await response.text();
+    let detail = body;
+    try {
+      const parsed = JSON.parse(body);
+      detail = parsed.error?.message || body;
+    } catch { /* not JSON, use raw body */ }
+    throw new Error(`${fallback}: ${detail}`);
+  }
+
   private async makeTokenRequest(credentials: AuthCredentials, code: string): Promise<any> {
     const response = await fetch(
       `${this.config.tokenUrl}?` +
@@ -273,7 +284,7 @@ export class FacebookPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Token exchange failed');
+      return this.parseGraphError(response, 'Token exchange failed');
     }
 
     return (await response.json()) as Record<string, any>;
@@ -286,25 +297,25 @@ export class FacebookPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get user Pages');
+      return this.parseGraphError(response, 'Failed to get user Pages');
     }
 
     const data = (await response.json()) as { data?: any[] };
     return data.data || [];
   }
 
-  private async getLongLivedToken(shortLivedToken: string, clientSecret: string): Promise<string> {
+  private async getLongLivedToken(shortLivedToken: string, clientId: string, clientSecret: string): Promise<string> {
     const response = await fetch(
       `${this.config.apiBaseUrl}/oauth/access_token?` +
       `grant_type=fb_exchange_token&` +
-      `client_id=${this.getClientId()}&` +
+      `client_id=${clientId}&` +
       `client_secret=${clientSecret}&` +
       `fb_exchange_token=${shortLivedToken}`,
       { method: 'GET' }
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get long-lived token');
+      return this.parseGraphError(response, 'Failed to get long-lived token');
     }
 
     const data = (await response.json()) as { access_token: string };
@@ -320,7 +331,7 @@ export class FacebookPlatform extends SocialMediaPlatform {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to get Page access token');
+      return this.parseGraphError(response, 'Failed to get Page access token');
     }
 
     const data = (await response.json()) as { access_token: string };
@@ -344,9 +355,5 @@ export class FacebookPlatform extends SocialMediaPlatform {
     // Facebook post/description limit is effectively ~63,206 characters,
     // far beyond anything realistic here, so no truncation is applied.
     return formatted;
-  }
-
-  private getClientId(): string {
-    return process.env.FACEBOOK_CLIENT_ID || '';
   }
 }
