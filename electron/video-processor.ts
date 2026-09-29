@@ -60,7 +60,14 @@ class VideoProcessor {
   private tempDir: string;
 
   constructor() {
-    this.tempDir = path.join(require('os').tmpdir(), 'reelshare');
+    // Use Electron's persistent userData directory rather than the OS temp
+    // directory. Thumbnails (and any processed video output) need to
+    // survive across app restarts and OS temp-file cleanup, since the
+    // video library references these paths indefinitely via SQLite.
+    // Using os.tmpdir() here previously meant thumbnails/processed videos
+    // could vanish silently whenever the OS cleared its temp folder.
+    const { app } = require('electron');
+    this.tempDir = path.join(app.getPath('userData'), 'generated-media');
     if (!fs.existsSync(this.tempDir)) {
       fs.mkdirSync(this.tempDir, { recursive: true });
     }
@@ -265,21 +272,19 @@ class VideoProcessor {
     }
   }
 
+  // NOTE: this used to unconditionally delete anything older than 1 hour
+  // in this.tempDir, which was safe back when tempDir was the OS temp
+  // folder and only held disposable scratch files. Now that tempDir is
+  // the app's permanent userData/generated-media directory (holding
+  // thumbnails and processed videos that the video library's database
+  // rows reference indefinitely), an unconditional age-based sweep would
+  // silently delete thumbnails still in active use, breaking video card
+  // previews exactly like the OS-temp-dir cleanup bug this was meant to
+  // avoid. Real cleanup now happens explicitly in deleteVideo() (see
+  // database.ts / video-store.ts), which removes a video's specific
+  // thumbnail/file when the user actually deletes that video.
   async cleanupTempFiles(): Promise<void> {
-    try {
-      const files = fs.readdirSync(this.tempDir);
-      for (const file of files) {
-        const filePath = path.join(this.tempDir, file);
-        // Delete files older than 1 hour
-        const stats = fs.statSync(filePath);
-        const age = Date.now() - stats.mtimeMs;
-        if (age > 3600000) { // 1 hour in milliseconds
-          fs.unlinkSync(filePath);
-        }
-      }
-    } catch (error) {
-      console.error('Error cleaning up temp files:', error);
-    }
+    return;
   }
 }
 
@@ -287,12 +292,7 @@ export const videoProcessor = new VideoProcessor();
 
 export function initVideoProcessor(): void {
   videoProcessor.initialize().catch(console.error);
-  
-  // Set up cleanup interval (every 30 minutes)
-  setInterval(() => {
-    videoProcessor.cleanupTempFiles().catch(console.error);
-  }, 30 * 60 * 1000);
-  
+
   // IPC handlers for video processing
   ipcMain.handle('video:getMetadata', async (_, filePath: string) => {
     return await videoProcessor.getVideoMetadata(filePath);

@@ -194,6 +194,51 @@ ipcMain.handle('dialog:openDirectory', async () => {
   return null;
 });
 
+// Opens a native "pick a video file" dialog and returns the chosen path
+// directly. We use dialog.showOpenDialog (rather than an HTML
+// <input type="file"> in the renderer) specifically because it hands back
+// a real filesystem path with no extra API needed -- browser File objects
+// in a contextIsolated renderer have no durable path the main process's
+// video processor (ffmpeg) or SQLite file_path column can use once the
+// picker closes. This also avoids relying on the deprecated (and removed
+// in Electron 32+) File.path extension.
+ipcMain.handle('video:pickFile', async () => {
+  if (!mainWindow) return null;
+
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select a video to upload',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Video Files', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] }
+    ]
+  });
+
+  if (canceled || filePaths.length === 0) return null;
+  return filePaths[0];
+});
+
+// Copies a picked video into ReelShare's permanent per-user storage
+// directory (userData/videos), returning the new, stable path. Videos
+// stay wherever the user originally had them selectable from, but ReelShare
+// needs its own persistent copy: the original file could be renamed,
+// moved, or deleted (e.g. it was on a USB drive or Downloads folder that
+// gets cleaned up) without ReelShare losing access to it.
+ipcMain.handle('video:saveFile', async (_, sourcePath: string, fileName: string) => {
+  const videosDir = path.join(app.getPath('userData'), 'videos');
+  if (!fs.existsSync(videosDir)) {
+    fs.mkdirSync(videosDir, { recursive: true });
+  }
+
+  const ext = path.extname(fileName) || path.extname(sourcePath) || '.mp4';
+  const baseName = path.basename(fileName, path.extname(fileName)) || 'video';
+  const uniqueName = `${baseName}_${Date.now()}${ext}`;
+  const destPath = path.join(videosDir, uniqueName);
+
+  await fs.promises.copyFile(sourcePath, destPath);
+
+  return destPath;
+});
+
 ipcMain.handle('file:exists', async (_, filePath: string) => {
   return fs.existsSync(filePath);
 });

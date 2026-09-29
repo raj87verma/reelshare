@@ -15,6 +15,7 @@ export interface AppSettings {
     autoGenerateThumbnails: boolean;
     thumbnailTime: number;
     maxFileSize: number;
+    maxDurationSeconds: number;
     autoCompression: boolean;
     compressionQuality: number;
     keepOriginalFiles: boolean;
@@ -53,6 +54,7 @@ export interface AppSettings {
     instagram: { clientId: string; clientSecret: string; redirectUri: string };
     tiktok: { clientId: string; clientSecret: string; redirectUri: string };
     youtube: { clientId: string; clientSecret: string; redirectUri: string };
+    facebook: { clientId: string; clientSecret: string; redirectUri: string };
   };
 }
 
@@ -70,6 +72,7 @@ const defaultSettings: AppSettings = {
     autoGenerateThumbnails: true,
     thumbnailTime: 5,
     maxFileSize: 500,
+    maxDurationSeconds: 30 * 60,
     autoCompression: true,
     compressionQuality: 80,
     keepOriginalFiles: true
@@ -107,7 +110,8 @@ const defaultSettings: AppSettings = {
   apiCredentials: {
     instagram: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/instagram/callback' },
     tiktok: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/tiktok/callback' },
-    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' }
+    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' },
+    facebook: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/facebook/callback' }
   }
 };
 

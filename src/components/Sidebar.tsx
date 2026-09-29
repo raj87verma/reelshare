@@ -7,16 +7,23 @@ import {
   BarChart3, 
   Users, 
   Settings,
-  Upload
+  Upload,
+  LogOut
 } from 'lucide-react';
+import { useAppStore } from '../store/app-store';
 
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const { user, logout } = useAppStore();
 
   const handleUploadClick = () => {
     // Navigate to the Video Library and tell it to open the upload modal
     // immediately (read via location.state in VideoLibrary).
     navigate('/videos', { state: { openUpload: true } });
+  };
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   const navItems = [
@@ -79,11 +86,20 @@ const Sidebar: React.FC = () => {
       {/* User Profile */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-muted rounded-full"></div>
-          <div className="flex-1">
-            <p className="font-medium text-sm">Alex Johnson</p>
-            <p className="text-xs text-muted-foreground">Premium Plan</p>
+          <div className="w-10 h-10 bg-gradient-to-r from-primary to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+            {(user?.name || '?').charAt(0).toUpperCase()}
           </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{user?.name || 'Guest'}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email || ''}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Log out"
+            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex-shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

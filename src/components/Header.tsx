@@ -5,7 +5,7 @@ import { useAppStore } from '../store/app-store';
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const { notifications } = useAppStore();
+  const { notifications, user } = useAppStore();
 
   const getPageTitle = () => {
     const path = location.pathname;
@@ -53,7 +53,9 @@ const Header: React.FC = () => {
 
           {/* User Profile */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-muted rounded-full"></div>
+            <div className="w-10 h-10 bg-gradient-to-r from-primary to-pink-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+              {(user?.name || '?').charAt(0).toUpperCase()}
+            </div>
           </div>
         </div>
       </div>

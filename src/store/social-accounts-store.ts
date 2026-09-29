@@ -61,6 +61,12 @@ export const useSocialAccountsStore = create<SocialAccountsState>((set, get) => 
       name: 'YouTube',
       connected: false,
       status: 'disconnected'
+    },
+    facebook: {
+      id: 'facebook',
+      name: 'Facebook',
+      connected: false,
+      status: 'disconnected'
     }
   },
   loading: false,
@@ -99,6 +105,12 @@ export const useSocialAccountsStore = create<SocialAccountsState>((set, get) => 
         youtube: {
           id: 'youtube',
           name: 'YouTube',
+          connected: false,
+          status: 'disconnected'
+        },
+        facebook: {
+          id: 'facebook',
+          name: 'Facebook',
           connected: false,
           status: 'disconnected'
         }

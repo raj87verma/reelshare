@@ -99,6 +99,22 @@ const SocialAccounts: React.FC = () => {
     username?: string;
   }
 
+  // Mirrors the maxVideoSize/maxVideoDuration actually configured on each
+  // platform class in electron/social-platforms/*.ts. There's no IPC
+  // channel exposing those constants to the renderer, so this display-only
+  // copy has to be kept in sync by hand when those files change. Previously
+  // this was a single hardcoded "90s - 180s" string applied identically to
+  // every platform, which was wrong for all of them (real limits vary by
+  // an order of magnitude between platforms) and didn't reflect the 2026
+  // limit increases applied in electron/social-platforms/instagram.ts and
+  // tiktok.ts (see comments there).
+  const platformLimits: Record<string, { maxSizeMB: number; maxDurationLabel: string }> = {
+    instagram: { maxSizeMB: 100, maxDurationLabel: '15 min' },
+    tiktok: { maxSizeMB: 500, maxDurationLabel: '10 min' },
+    youtube: { maxSizeMB: 128 * 1024, maxDurationLabel: '12 hours' },
+    facebook: { maxSizeMB: 4 * 1024, maxDurationLabel: '240 min' }
+  };
+
   const platformConfigs: PlatformDisplayConfig[] = [
     {
       id: 'instagram',
@@ -136,9 +152,9 @@ const SocialAccounts: React.FC = () => {
       icon: '👥',
       description: 'Share to pages and groups',
       color: 'from-blue-600 to-blue-800',
-      connected: false,
-      status: 'coming_soon',
-      username: undefined
+      connected: platforms.facebook?.connected || false,
+      status: platforms.facebook?.status || 'disconnected',
+      username: platforms.facebook?.username
     },
     {
       id: 'linkedin',
@@ -392,18 +408,24 @@ const SocialAccounts: React.FC = () => {
               </div>
 
               {/* Platform Info */}
-              <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="font-medium">Max Video Size</p>
-                    <p>100MB - 500MB</p>
-                  </div>
-                  <div>
-                    <p className="font-medium">Max Duration</p>
-                    <p>90s - 180s</p>
+              {platformLimits[platform.id] && (
+                <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="font-medium">Max Video Size</p>
+                      <p>
+                        {platformLimits[platform.id].maxSizeMB >= 1024
+                          ? `${Math.round(platformLimits[platform.id].maxSizeMB / 1024)}GB`
+                          : `${platformLimits[platform.id].maxSizeMB}MB`}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Max Duration</p>
+                      <p>{platformLimits[platform.id].maxDurationLabel}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>

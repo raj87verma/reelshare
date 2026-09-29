@@ -126,15 +126,25 @@ reelshare/
 
 ### Connecting Social Media Accounts
 
-1. Navigate to **Social Accounts** page
-2. Click "Connect" for each platform
-3. Follow the OAuth authentication flow
-4. Grant necessary permissions for posting and analytics
+Before connecting an account, ReelShare needs your own developer API credentials
+(Client ID + Client Secret) for that platform — this is required by every platform
+before any third-party app can publish on your behalf.
+
+1. Get your API keys for each platform you want to use: see
+   **[API_KEYS_GUIDE.md](./API_KEYS_GUIDE.md)** for step-by-step instructions
+   (Instagram, Facebook, TikTok, YouTube)
+2. In ReelShare, go to **Settings → API Keys** and paste in your Client ID,
+   Client Secret, and Redirect URI for each platform
+3. Navigate to the **Social Accounts** page
+4. Click **Connect Account** for each platform
+5. Follow the OAuth authentication flow in the window that opens
+6. Grant necessary permissions for posting and analytics
 
 ### Uploading and Managing Videos
 
 1. **Video Library**: Access from sidebar or dashboard
-2. **Upload**: Drag & drop or click to upload videos
+2. **Upload**: Click "Upload Video" (sidebar or Video Library) to open the native
+   file picker and choose a video from your computer
 3. **Edit**: Add titles, descriptions, tags
 4. **Preview**: View video with auto-generated thumbnail
 

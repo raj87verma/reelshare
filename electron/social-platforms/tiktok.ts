@@ -27,7 +27,11 @@ export class TikTokPlatform extends SocialMediaPlatform {
         'video.list'
       ],
       maxVideoSize: 500 * 1024 * 1024, // 500MB
-      maxVideoDuration: 180, // 3 minutes
+      // TikTok's Content Posting API supports uploads up to 10 minutes as
+      // of 2026 (in-app recording is capped lower, but that doesn't apply
+      // to API-based uploads like this). The old 180s limit here was far
+      // stricter than what TikTok's own upload API actually allows.
+      maxVideoDuration: 10 * 60, // 10 minutes
       supportedFormats: ['mp4', 'mov'],
       rateLimit: {
         requests: 100,

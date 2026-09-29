@@ -3,6 +3,32 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Authentication
+  auth: {
+    register: (email, name, password) => ipcRenderer.invoke('auth:register', email, name, password),
+    login: (email, password) => ipcRenderer.invoke('auth:login', email, password),
+    logout: () => ipcRenderer.invoke('auth:logout'),
+    getCurrentUser: () => ipcRenderer.invoke('auth:getCurrentUser')
+  },
+
+  // Video library (persisted via SQLite in the main process)
+  videos: {
+    create: (videoData) => ipcRenderer.invoke('db:createVideo', videoData),
+    getAll: (userId) => ipcRenderer.invoke('db:getVideos', userId),
+    get: (videoId) => ipcRenderer.invoke('db:getVideo', videoId),
+    update: (videoId, updates) => ipcRenderer.invoke('db:updateVideo', videoId, updates),
+    delete: (videoId) => ipcRenderer.invoke('db:deleteVideo', videoId),
+    // Opens a native file picker and returns the chosen path directly
+    // (see video:pickFile in main.ts for why this is used instead of an
+    // HTML <input type="file">).
+    pickFile: () => ipcRenderer.invoke('video:pickFile'),
+    // Copies a picked file into the app's permanent storage directory,
+    // returning the real, stable filesystem path.
+    saveFile: (sourcePath, fileName) => ipcRenderer.invoke('video:saveFile', sourcePath, fileName),
+    getMetadata: (filePath) => ipcRenderer.invoke('video:getMetadata', filePath),
+    generateThumbnail: (filePath, timestamp) => ipcRenderer.invoke('video:generateThumbnail', filePath, timestamp)
+  },
+
   // Dialog methods
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
   openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),

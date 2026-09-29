@@ -8,13 +8,16 @@ import Schedule from './pages/Schedule';
 import Analytics from './pages/Analytics';
 import SocialAccounts from './pages/SocialAccounts';
 import Settings from './pages/Settings';
+import Auth from './pages/Auth';
 import { useAppStore } from './store/app-store';
+import { useVideoStore } from './store/video-store';
 
 // Handles app-wide effects that need router context (e.g. navigating in
 // response to tray menu actions), separate from the top-level App component
 // so it can live inside <Router> where useNavigate() is available.
 function AppEffects() {
-  const { initializeApp } = useAppStore();
+  const { initializeApp, user, authChecked } = useAppStore();
+  const { getVideos } = useVideoStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -46,6 +49,40 @@ function AppEffects() {
       }
     };
   }, [initializeApp]);
+
+  // Reload the video library whenever the logged-in user changes (login,
+  // logout, or switching accounts), so one user's videos never briefly
+  // appear for another, and a freshly logged-in user immediately sees
+  // their own library rather than stale/empty state left over from
+  // before login.
+  useEffect(() => {
+    if (user) {
+      getVideos();
+    }
+  }, [user, getVideos]);
+
+  // While the initial session check is in flight, render nothing rather
+  // than briefly flashing the Login screen before we know whether a user
+  // is already logged in from a previous run.
+  if (!authChecked) {
+    return (
+      <>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+        <Toaster position="bottom-right" richColors />
+      </>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <Auth />
+        <Toaster position="bottom-right" richColors />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

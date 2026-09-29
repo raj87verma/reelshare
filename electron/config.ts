@@ -18,6 +18,12 @@ export interface AppSettings {
     autoGenerateThumbnails: boolean;
     thumbnailTime: number;
     maxFileSize: number; // MB
+    // User-configurable ceiling on how long an uploaded video may be, in
+    // seconds. This is ReelShare's own local limit (enforced at upload
+    // time in the UI), separate from each platform's own maxVideoDuration
+    // in electron/social-platforms/*.ts, which is that platform's actual
+    // API-enforced cap and isn't user-adjustable.
+    maxDurationSeconds: number;
     autoCompression: boolean;
     compressionQuality: number; // 1-100
     keepOriginalFiles: boolean;
@@ -102,6 +108,7 @@ export interface AppSettings {
     instagram: { clientId: string; clientSecret: string; redirectUri: string };
     tiktok: { clientId: string; clientSecret: string; redirectUri: string };
     youtube: { clientId: string; clientSecret: string; redirectUri: string };
+    facebook: { clientId: string; clientSecret: string; redirectUri: string };
   };
 }
 
@@ -119,6 +126,12 @@ const defaultSettings: AppSettings = {
     autoGenerateThumbnails: true,
     thumbnailTime: 5,
     maxFileSize: 500,
+    // Default ceiling of 30 minutes -- comfortably above every
+    // individual platform's own cap (Instagram 15min, TikTok 10min,
+    // Facebook 240min, YouTube effectively unlimited for long-form), so
+    // it doesn't get in the way by default. Platform-specific limits are
+    // still enforced separately when actually publishing to that platform.
+    maxDurationSeconds: 30 * 60,
     autoCompression: true,
     compressionQuality: 80,
     keepOriginalFiles: true,
@@ -185,7 +198,8 @@ const defaultSettings: AppSettings = {
   apiCredentials: {
     instagram: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/instagram/callback' },
     tiktok: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/tiktok/callback' },
-    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' }
+    youtube: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/youtube/callback' },
+    facebook: { clientId: '', clientSecret: '', redirectUri: 'http://localhost:3000/auth/facebook/callback' }
   }
 };
 
@@ -210,6 +224,25 @@ class ConfigService {
           
           if (!oldSettings.notifications?.soundEnabled) {
             store.set('notifications.soundEnabled', true);
+          }
+        },
+        '>=1.0.5': (store) => {
+          const oldSettings = store.store;
+
+          // video.maxDurationSeconds is new in 1.0.5; users upgrading
+          // from an earlier version won't have it set yet.
+          if (oldSettings.video && oldSettings.video.maxDurationSeconds === undefined) {
+            store.set('video.maxDurationSeconds', 30 * 60);
+          }
+
+          // apiCredentials.facebook is new in 1.0.5 (Facebook support was
+          // added alongside this release).
+          if (oldSettings.apiCredentials && !oldSettings.apiCredentials.facebook) {
+            store.set('apiCredentials.facebook', {
+              clientId: '',
+              clientSecret: '',
+              redirectUri: 'http://localhost:3000/auth/facebook/callback'
+            });
           }
         }
       }

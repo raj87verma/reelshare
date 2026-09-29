@@ -96,6 +96,7 @@ const Settings: React.FC = () => {
 
   const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
   const [credentialDrafts, setCredentialDrafts] = useState<Record<string, { clientId: string; clientSecret: string; redirectUri: string }> | null>(null);
+  type ApiCredentialPlatform = 'instagram' | 'tiktok' | 'youtube' | 'facebook';
 
   // Keep a local editable draft of API credentials, seeded from settings
   // once they've loaded, so typing doesn't trigger a save on every
@@ -107,7 +108,7 @@ const Settings: React.FC = () => {
   }, [settings?.apiCredentials, credentialDrafts]);
 
   const handleCredentialFieldChange = (
-    platform: 'instagram' | 'tiktok' | 'youtube',
+    platform: ApiCredentialPlatform,
     field: 'clientId' | 'clientSecret' | 'redirectUri',
     value: string
   ) => {
@@ -120,7 +121,7 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleSaveCredentials = async (platform: 'instagram' | 'tiktok' | 'youtube') => {
+  const handleSaveCredentials = async (platform: ApiCredentialPlatform) => {
     if (!credentialDrafts) return;
     await updateSetting('apiCredentials', platform, credentialDrafts[platform]);
     toast.success(`${platform.charAt(0).toUpperCase() + platform.slice(1)} API credentials saved`);
@@ -145,13 +146,18 @@ const Settings: React.FC = () => {
       label: 'Google Cloud Console',
       url: 'https://console.cloud.google.com/apis/credentials',
       instructions: 'Create an OAuth 2.0 Client ID (type: Desktop app), enable the YouTube Data API v3, and copy the Client ID / Client Secret.'
+    },
+    facebook: {
+      label: 'Meta for Developers',
+      url: 'https://developers.facebook.com/apps/',
+      instructions: 'Create an app (or reuse your Instagram app), add the "Facebook Login" and "Pages API" products, and copy the App ID (use as Client ID) / App Secret from Settings > Basic.'
     }
   };
 
   const renderApiKeysSettings = () => {
     if (!credentialDrafts) return null;
 
-    const platformList: Array<'instagram' | 'tiktok' | 'youtube'> = ['instagram', 'tiktok', 'youtube'];
+    const platformList: ApiCredentialPlatform[] = ['instagram', 'facebook', 'tiktok', 'youtube'];
 
     return (
       <div className="space-y-6">
@@ -163,6 +169,15 @@ const Settings: React.FC = () => {
             Credentials are saved locally and encrypted at rest; they are never sent
             anywhere except directly to the platform you're authenticating with.
           </p>
+          <a
+            href="https://github.com/raj87verma/reelshare/blob/main/API_KEYS_GUIDE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center space-x-1 mt-2"
+          >
+            <span>Full step-by-step guide for getting each platform's API keys</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
 
         {platformList.map((platform) => {
@@ -429,6 +444,24 @@ const Settings: React.FC = () => {
                 min="10"
                 max="10000"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Maximum Video Duration (minutes)
+              </label>
+              <input
+                type="number"
+                value={Math.round((settings.video.maxDurationSeconds ?? 1800) / 60)}
+                onChange={(e) => handleSettingChange('video', 'maxDurationSeconds', Math.max(1, parseInt(e.target.value) || 1) * 60)}
+                className="w-full px-4 py-2 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                min="1"
+                max="720"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Videos longer than this are rejected at upload time. Individual platforms
+                may enforce their own (usually shorter) limit when publishing.
+              </p>
             </div>
 
             <div>

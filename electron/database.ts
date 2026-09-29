@@ -3,11 +3,25 @@ import { app, ipcMain } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import Store from 'electron-store';
+
+// Tracks which user is currently logged in, persisted across app restarts.
+// Deliberately separate from the main SQLite database: this is UI/session
+// state (which account is active), not application data.
+interface SessionStore {
+  currentUserId: string | null;
+}
+const sessionStore = new Store<SessionStore>({
+  name: 'reelshare-session',
+  defaults: { currentUserId: null }
+});
 
 interface User {
   id: string;
   email: string;
   name: string;
+  password_hash: string;
+  password_salt: string;
   encrypted_api_keys: string;
   preferences: string;
   created_at: string;
@@ -148,12 +162,26 @@ class DatabaseService {
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
         encrypted_api_keys TEXT,
         preferences TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migrate pre-1.0.5 users tables (created before password columns
+    // existed) by adding the missing columns. ALTER TABLE ADD COLUMN is a
+    // no-op-safe operation to attempt and ignore failure on, since SQLite
+    // has no "ADD COLUMN IF NOT EXISTS" and better-sqlite3 has no
+    // information_schema query helper built in.
+    try {
+      this.db.exec(`ALTER TABLE users ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''`);
+    } catch { /* column already exists */ }
+    try {
+      this.db.exec(`ALTER TABLE users ADD COLUMN password_salt TEXT NOT NULL DEFAULT ''`);
+    } catch { /* column already exists */ }
 
     // Social accounts table
     this.db.exec(`
@@ -231,36 +259,75 @@ class DatabaseService {
     `);
   }
 
+  // Password hashing helpers (scrypt, built into Node's crypto module --
+  // no extra native dependency needed, unlike bcrypt). Each user gets a
+  // unique random salt; the hash is derived from password+salt so two
+  // users with the same password never have matching hashes.
+  private hashPassword(password: string, salt: string): string {
+    return crypto.scryptSync(password, salt, 64).toString('hex');
+  }
+
+  private verifyPassword(password: string, salt: string, expectedHash: string): boolean {
+    const actualHash = this.hashPassword(password, salt);
+    // Timing-safe comparison to avoid leaking hash-match info via
+    // response-time side channels.
+    const actual = Buffer.from(actualHash, 'hex');
+    const expected = Buffer.from(expectedHash, 'hex');
+    if (actual.length !== expected.length) return false;
+    return crypto.timingSafeEqual(actual, expected);
+  }
+
   // User operations
-  async createUser(user: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
+  async registerUser(email: string, name: string, password: string): Promise<{ id: string; email: string; name: string }> {
     if (!this.db) throw new Error('Database not initialized');
-    
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = this.db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+    if (existing) {
+      throw new Error('An account with this email already exists');
+    }
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+    const salt = crypto.randomBytes(16).toString('hex');
+    const passwordHash = this.hashPassword(password, salt);
+
     const stmt = this.db.prepare(`
-      INSERT INTO users (id, email, name, encrypted_api_keys, preferences, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, name, password_hash, password_salt, encrypted_api_keys, preferences, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
-    stmt.run(
-      id,
-      user.email,
-      user.name,
-      user.encrypted_api_keys || '',
-      user.preferences || '{}',
-      now,
-      now
-    );
-    
-    return id;
+
+    stmt.run(id, normalizedEmail, name.trim(), passwordHash, salt, '', '{}', now, now);
+
+    return { id, email: normalizedEmail, name: name.trim() };
+  }
+
+  async loginUser(email: string, password: string): Promise<{ id: string; email: string; name: string }> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = this.db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as User | undefined;
+
+    if (!user || !this.verifyPassword(password, user.password_salt, user.password_hash)) {
+      throw new Error('Invalid email or password');
+    }
+
+    return { id: user.id, email: user.email, name: user.name };
   }
 
   async getUser(email: string): Promise<User | null> {
     if (!this.db) throw new Error('Database not initialized');
     
     const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?');
-    return stmt.get(email) as User | null;
+    return (stmt.get(email.trim().toLowerCase()) as User | undefined) || null;
+  }
+
+  async getUserById(id: string): Promise<{ id: string; email: string; name: string } | null> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const stmt = this.db.prepare('SELECT id, email, name FROM users WHERE id = ?');
+    return (stmt.get(id) as { id: string; email: string; name: string } | undefined) || null;
   }
 
   async updateUserPreferences(userId: string, preferences: any): Promise<void> {
@@ -347,9 +414,26 @@ class DatabaseService {
 
   async deleteVideo(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
-    
+
+    // Look up the video first so we can also remove its file and
+    // thumbnail from disk -- deleting only the database row would leave
+    // orphaned video/thumbnail files taking up space forever.
+    const video = await this.getVideo(id);
+
     const stmt = this.db.prepare('DELETE FROM videos WHERE id = ?');
     stmt.run(id);
+
+    if (video) {
+      for (const filePath of [video.file_path, video.thumbnail_path]) {
+        if (filePath && fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+          } catch (error) {
+            console.error(`Failed to delete file ${filePath}:`, error);
+          }
+        }
+      }
+    }
   }
 
   // Social account operations
@@ -463,6 +547,35 @@ class DatabaseService {
     query += ' ORDER BY sp.scheduled_time ASC LIMIT ?';
     params.push(limit);
     
+    const stmt = this.db.prepare(query);
+    return stmt.all(...params);
+  }
+
+  // Same as getScheduledPosts, but across every user rather than one --
+  // used by the background scheduler (electron/scheduler.ts), which needs
+  // to fire due posts for whichever accounts exist, not just one
+  // hardcoded user. The renderer-facing IPC handlers still use the
+  // per-user variant above, scoped to the logged-in user.
+  async getAllPendingScheduledPosts(status?: string, limit: number = 1000): Promise<any[]> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let query = `
+      SELECT sp.*, v.title as video_title, v.thumbnail_path, sa.platform, sa.account_name
+      FROM scheduled_posts sp
+      JOIN videos v ON sp.video_id = v.id
+      JOIN social_accounts sa ON sp.account_id = sa.id
+    `;
+
+    const params: any[] = [];
+
+    if (status) {
+      query += ' WHERE sp.status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY sp.scheduled_time ASC LIMIT ?';
+    params.push(limit);
+
     const stmt = this.db.prepare(query);
     return stmt.all(...params);
   }
@@ -595,11 +708,31 @@ export const dbService = new DatabaseService();
 export function initDatabase(): void {
   dbService.initialize().catch(console.error);
   
-  // IPC handlers for database operations
-  ipcMain.handle('db:createUser', async (_, userData) => {
-    return await dbService.createUser(userData);
+  // IPC handlers for authentication
+  ipcMain.handle('auth:register', async (_, email: string, name: string, password: string) => {
+    const user = await dbService.registerUser(email, name, password);
+    sessionStore.set('currentUserId', user.id);
+    return user;
   });
-  
+
+  ipcMain.handle('auth:login', async (_, email: string, password: string) => {
+    const user = await dbService.loginUser(email, password);
+    sessionStore.set('currentUserId', user.id);
+    return user;
+  });
+
+  ipcMain.handle('auth:logout', async () => {
+    sessionStore.set('currentUserId', null);
+    return true;
+  });
+
+  ipcMain.handle('auth:getCurrentUser', async () => {
+    const userId = sessionStore.get('currentUserId');
+    if (!userId) return null;
+    return await dbService.getUserById(userId);
+  });
+
+  // IPC handlers for database operations
   ipcMain.handle('db:getUser', async (_, email) => {
     return await dbService.getUser(email);
   });

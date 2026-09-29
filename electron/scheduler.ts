@@ -33,8 +33,10 @@ class SchedulerService {
 
   private async loadScheduledPosts(): Promise<void> {
     try {
-      // Get pending scheduled posts
-      const posts = await dbService.getScheduledPosts('user_1', 'pending', 1000);
+      // Get pending scheduled posts across all users -- this runs once at
+      // app startup and needs to pick up due posts regardless of which
+      // account created them, not just a single hardcoded user.
+      const posts = await dbService.getAllPendingScheduledPosts('pending', 1000);
       
       for (const post of posts) {
         await this.schedulePost(post);
@@ -48,7 +50,7 @@ class SchedulerService {
     // Check for new scheduled posts every minute
     setInterval(async () => {
       try {
-        const newPosts = await dbService.getScheduledPosts('user_1', 'pending', 100);
+        const newPosts = await dbService.getAllPendingScheduledPosts('pending', 100);
         
         for (const post of newPosts) {
           if (!this.tasks.has(post.id)) {

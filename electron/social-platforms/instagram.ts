@@ -28,7 +28,14 @@ export class InstagramPlatform extends SocialMediaPlatform {
         'pages_read_engagement'
       ],
       maxVideoSize: 100 * 1024 * 1024, // 100MB
-      maxVideoDuration: 90, // 90 seconds for reels
+      // Instagram's Graph API (which this uploads through) documents a
+      // 15-minute cap for Reels/video uploads as of 2026 -- the old 90s
+      // limit here only reflected the original, much earlier Reels cap
+      // and was far stricter than what the platform actually supports.
+      // Note: Instagram still recommends staying under ~3 minutes for
+      // best algorithmic reach to non-followers, but that's a
+      // recommendation, not a hard API limit.
+      maxVideoDuration: 15 * 60, // 15 minutes
       supportedFormats: ['mp4', 'mov'],
       rateLimit: {
         requests: 200,

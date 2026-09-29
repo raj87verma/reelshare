@@ -2,6 +2,7 @@ import { SocialMediaPlatform, AuthCredentials, AuthResult, VideoData, PostMetada
 import { InstagramPlatform } from './instagram';
 import { TikTokPlatform } from './tiktok';
 import { YouTubePlatform } from './youtube';
+import { FacebookPlatform } from './facebook';
 import { ipcMain } from 'electron';
 import { dbService } from '../database';
 
@@ -28,6 +29,7 @@ export class PlatformManager {
     this.platforms.set('instagram', new InstagramPlatform());
     this.platforms.set('tiktok', new TikTokPlatform());
     this.platforms.set('youtube', new YouTubePlatform());
+    this.platforms.set('facebook', new FacebookPlatform());
     
     // Initialize configs
     this.platformConfigs.set('instagram', {
@@ -45,6 +47,12 @@ export class PlatformManager {
     this.platformConfigs.set('youtube', {
       type: 'youtube',
       name: 'YouTube',
+      enabled: false
+    });
+
+    this.platformConfigs.set('facebook', {
+      type: 'facebook',
+      name: 'Facebook',
       enabled: false
     });
   }
